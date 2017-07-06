@@ -1,14 +1,21 @@
+# -*- coding: utf-8 -*-
 r"""
 EkEkStar
 
-AUTHOR:
+AUTHORS:
 
- - Milton Minervino, 2017
+ - Milton Minervino, 2017, initial version
+ - Sébastien Labbé, July 6th 2017: added doctests, package, improve object
+   oriented structure of the classes
 
 .. TODO::
 
     - Clean method kFace._plot(geosub) so that it takes projection
       information (like vectors or matrix or ...) instead of the geosub
+
+    - Patch should contain the multiplicity, not the faces. 
+    
+    - Fix the addition of patchs (linear time instead of quadratic time).
 
     - Use rainbow() or something else to automatically choose colors
 
@@ -16,6 +23,7 @@ AUTHOR:
  
 EXAMPLES::
 
+    sage: from EkEkstar import GeoSub, kPatch, kFace
     sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
     sage: geosub = GeoSub(sub,2,1,1)
     sage: P = kPatch([kFace((0,0,0),(1,2),d=1),
@@ -27,16 +35,18 @@ EXAMPLES::
     Patch of 32 faces
     sage: _ = Q.plot(geosub)
 
-This is a remainder for me::
+REMAINDER:
+
+This is a remainder for how to get the import statements::
 
     sage: import_statements('Graphics')
     from sage.plot.graphics import Graphics
-
 """
 from itertools import product, combinations
+from sage.misc.cachefunc import cached_method
 from sage.structure.sage_object import SageObject
 from sage.rings.integer_ring import ZZ
-from sage.modules.free_module_element import vector
+from sage.modules.free_module_element import vector, zero_vector
 from sage.groups.perm_gps.permgroup_named import SymmetricGroup
 from sage.rings.all import CC
 from sage.combinat.words.morphism import WordMorphism
@@ -44,6 +54,7 @@ from sage.rings.number_field.number_field import NumberField
 from sage.plot.colors import Color
 from sage.plot.graphics import Graphics
 from sage.plot.polygon import polygon2d
+from sage.plot.line import line
 
 ##########
 #  Classes
@@ -227,6 +238,7 @@ class kFace(SageObject):
         r"""
         EXAMPLES::
 
+            sage: from EkEkstar import kFace, GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
             sage: geosub = GeoSub(sub,2,1,1)
             sage: f = kFace((0,0,0),(1,2),d=1)
@@ -365,6 +377,7 @@ class kPatch(SageObject):
         r"""
         EXAMPLES::
 
+            sage: from EkEkstar import kFace, kPatch, GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
             sage: geosub = GeoSub(sub,2,1,1)
             sage: P = kPatch([kFace((0,0,0),(1,2),d=1),
@@ -422,6 +435,7 @@ def abelian(L, alphabet):
     r"""
     EXAMPLES::
 
+        sage: from EkEkstar.EkEkstar import abelian
         sage: abelian([1,0,1,2,3,1,1,2,2], [0,1,2,3])
         (1, 4, 3, 1)
     """
@@ -431,6 +445,7 @@ class GeoSub(SageObject):
     r"""
     EXAMPLES::
 
+        sage: from EkEkstar import GeoSub
         sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
         sage: E = GeoSub(sub,2,1,0)
         sage: E
@@ -448,6 +463,7 @@ class GeoSub(SageObject):
         r"""
         EXAMPLES::
 
+            sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
             sage: E = GeoSub(sub,2,1,0)
             sage: E.field()
@@ -463,6 +479,7 @@ class GeoSub(SageObject):
         r"""
         EXAMPLES::
 
+            sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
             sage: E = GeoSub(sub,2,1,0)
             sage: E.gen()
@@ -478,6 +495,7 @@ class GeoSub(SageObject):
         r"""
         EXAMPLES::
 
+            sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
             sage: E = GeoSub(sub,2,1,0)
             sage: E.dominant_left_eigenvector()
@@ -489,6 +507,7 @@ class GeoSub(SageObject):
         r"""
         EXAMPLES::
             
+            sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
             sage: E = GeoSub(sub,2,1,0)
             sage: E.dominant_right_eigenvector()
@@ -501,6 +520,7 @@ class GeoSub(SageObject):
         r"""
         EXAMPLES::
             
+            sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
             sage: E = GeoSub(sub,2,1,0)
             sage: E.complex_embeddings()
@@ -514,6 +534,7 @@ class GeoSub(SageObject):
         r"""
         EXAMPLES::
             
+            sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
             sage: E = GeoSub(sub,2,1,0)
             sage: E.contracting_eigenvalues_indices()
@@ -526,6 +547,7 @@ class GeoSub(SageObject):
         r"""
         EXAMPLES::
             
+            sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
             sage: E = GeoSub(sub,2,1,0)
             sage: E.dilating_eigenvalues_indices()
@@ -539,6 +561,7 @@ class GeoSub(SageObject):
         r"""
         EXAMPLES::
             
+            sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
             sage: E = GeoSub(sub,2,1,0)
             sage: E.base_iter()
@@ -585,6 +608,7 @@ class GeoSub(SageObject):
         r"""
         EXAMPLES::
 
+            sage: from EkEkstar import GeoSub, kPatch, kFace
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
             sage: geosub = GeoSub(sub,2,1,1)
             sage: P = kPatch([kFace((0,0,0),(1,2),d=1),
