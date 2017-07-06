@@ -4,11 +4,28 @@ EkEkStar
 AUTHOR:
 
  - Milton Minervino, 2017
- 
 
+.. TODO::
+
+    - Clean method kFace._plot(geosub) so that it takes projection
+      information (like vectors or matrix or ...) instead of the geosub
+
+    - Use rainbow() or something else to automatically choose colors
+
+    - Allow the user to choose the colors of faces
+ 
 EXAMPLES::
 
-    sage: # global examples
+    sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
+    sage: geosub = GeoSub(sub,2,1,1)
+    sage: P = kPatch([kFace((0,0,0),(1,2),d=1),
+    ....:             kFace((0,0,1),(1,3),d=1),
+    ....:             kFace((0,1,0),(2,1),d=1),
+    ....:             kFace((0,0,0),(3,1),d=1)])
+    sage: Q = geosub(P, 6)
+    sage: Q
+    Patch of 32 faces
+    sage: _ = Q.plot(geosub)
 
 This is a remainder for me::
 
@@ -16,7 +33,7 @@ This is a remainder for me::
     from sage.plot.graphics import Graphics
 
 """
-from itertools import product
+from itertools import product, combinations
 from sage.structure.sage_object import SageObject
 from sage.rings.integer_ring import ZZ
 from sage.modules.free_module_element import vector
@@ -28,45 +45,9 @@ from sage.plot.colors import Color
 from sage.plot.graphics import Graphics
 from sage.plot.polygon import polygon2d
 
-
-
-
-
-
-#  GLOBAL FUNCTIONS
-def numfield(sub):
-    M = WordMorphism(sub).incidence_matrix()
-    b1 = max(M.eigenvalues())
-    f = b1.minpoly()
-    K = NumberField(f, 'b')
-    b, = K.gens()
-    return K  
-    
-
-def le(sub):
-    return (WordMorphism(sub).incidence_matrix()-numfield(sub).gen()*1).kernel().basis()[0]
-    #return vector([lefteig[0],lefteig[0]-lefteig[1]+lefteig[2],lefteig[1],-lefteig[1]+lefteig[3]])
-    #return vector([lefteig[0]+lefteig[1],-lefteig[1]+lefteig[2]-lefteig[3],lefteig[1],lefteig[3]])
-    
-    
-
-def re(sub):
-    return (WordMorphism(sub).incidence_matrix().transpose()-numfield(sub).gen()*1).kernel().basis()[0]    
-    
-
-def embb(sub):
-    return numfield(sub).gen().complex_embeddings()
-    
-
-def contr(sub):
-    return [embb(sub).index(x) for x in embb(sub) if abs(x)<1]
-    
-
-def dil(sub):
-    return [embb(sub).index(x) for x in embb(sub) if abs(x)>1]
-    
-        
-
+##########
+#  Classes
+##########
 class kFace(SageObject):
     r"""
     EXAMPLES:
@@ -88,8 +69,6 @@ class kFace(SageObject):
         
         sage: kFace((0,0,0,0),(1),m=-3,d=1)
         -3[(0, 0, 0, 0), 1]*
-
-        
     """
     def __init__(self, v, t, m=1, d=0, color=None):
         r"""
@@ -179,8 +158,6 @@ class kFace(SageObject):
             #    self._color = Color(self._type[0]/lol,self._type[1]/lol,self._type[2]/lol)                                            
         else:
             self._color = color
-   
-   
     def __repr__(self):
         r"""
         String representation.
@@ -203,23 +180,16 @@ class kFace(SageObject):
                 return "[]"
             else:
                 return "%s[%s, %s]"%(self.mult(),self.vector(), self.type())
-    
-    
     def __eq__(self, other):
-        
         return (isinstance(other, kFace) and
                 self.vector() == other.vector() and
                 self.type() == other.type() and 
                 self.mult() == other.mult() and 
                 self.dual() == other.dual()
                )
-    
-    
+    @cached_method
     def __hash__(self):
-        
         return hash((self.vector(), self.type(), self.mult(), self.dual()))
-    
-    
     def __add__(self, other):
         r"""
         EXAMPLES::
@@ -235,24 +205,17 @@ class kFace(SageObject):
             return kPatch([self, other])
         else:
             return kPatch(other).union(self)
-    
-    
     def vector(self):
-        
         return self._vector
-    
     def type(self):
         
         return self._type
-    
     def mult(self):
         
         return self._mult
-    
     def dual(self):
         
         return self._dual
-    
     def color(self, color=None):
         
         if color is None:
@@ -260,70 +223,88 @@ class kFace(SageObject):
         else:
             self._color = Color(color)
             
-    def _plot(self):
-        
+    def _plot(self, geosub):
+        r"""
+        EXAMPLES::
+
+            sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
+            sage: geosub = GeoSub(sub,2,1,1)
+            sage: f = kFace((0,0,0),(1,2),d=1)
+            sage: _ = f._plot(geosub)
+
+        ::
+
+            sage: sub = {1:[1,2,3,3,3,3], 2:[1,3], 3:[1]}
+            sage: geosub = GeoSub(sub,2,1,1)
+            sage: f = kFace((0,0,0),(1,2),d=1)
+            sage: _ = f._plot(geosub)
+        """
         v = self.vector()
         t = self.type()
         col = self._color
         G = Graphics()
         
-        K = numfield(sub)
+        K = geosub.field()
         b = K.gen()
                 
-        num = sub.keys()
+        num = geosub._sigma_dict.keys()
         
         if self._dual == 1:
             h = list(set(num)-set(t))
             B = b
-            vec = le(sub)
-            emb = contr(sub)
+            vec = geosub.dominant_left_eigenvector()
+            emb = geosub.contracting_eigenvalues_indices()
         else:
             h = list(t)
-            B = b^(-1) 
-            vec = -le(sub) 
-            emb = dil(sub) 
+            B = b**(-1) 
+            vec = -geosub.dominant_left_eigenvector() 
+            emb = geosub.dilating_eigenvalues_indices() 
         
         el = v*vec
         iter = 0
-        
+
+        conjugates = geosub.complex_embeddings()
+
         if len(h) == 1:
-            if embb(sub)[emb[0]].is_real() == True:
+            if conjugates[emb[0]].is_real() == True:
                 bp = zero_vector(CC, len(emb))
                 for i in range(len(emb)):
-                    bp[i] = K(B^(iter)*el).complex_embeddings()[emb[i]]
+                    bp[i] = K(el).complex_embeddings()[emb[i]]
                 bp1 = zero_vector(CC, len(emb))
                 for i in range(len(emb)):
-                    bp1[i] = K(B^(iter)*(el+vec[h[0]-1])).complex_embeddings()[emb[i]] 
+                    bp1[i] = K((el+vec[h[0]-1])).complex_embeddings()[emb[i]] 
                 if len(emb) == 1:
                     return line([bp[0],bp1[0]],color = col,thickness = 3) 
-                else: return line([bp,bp1],color = col,thickness = 3)      
+                else: 
+                    return line([bp,bp1],color = col,thickness = 3)      
             else: 
-                bp = K(B^(iter)*el).complex_embeddings()[emb[0]]
-                bp1 = K(B^(iter)*(el+vec[h[0]-1])).complex_embeddings()[emb[0]]
+                bp = K(el).complex_embeddings()[emb[0]]
+                bp1 = K((el+vec[h[0]-1])).complex_embeddings()[emb[0]]
                 return line([bp,bp1],color = col,thickness = 3)
         elif len(h) == 2: 
-            if embb(sub)[emb[0]].is_real() == True:
-                bp = ( K(B^(iter)*el).complex_embeddings()[emb[0]], K(B^(iter)*el).complex_embeddings()[emb[1]])
-                bp1 = ( K(B^(iter)*(el+vec[h[0]-1])).complex_embeddings()[emb[0]], K(B^(iter)*(el+vec[h[0]-1])).complex_embeddings()[emb[1]] )
-                bp2 = ( K(B^(iter)*(el+vec[h[0]-1]+vec[h[1]-1])).complex_embeddings()[emb[0]], K(B^(iter)*(el+vec[h[0]-1]+vec[h[1]-1])).complex_embeddings()[emb[1]])
-                bp3 = ( K(B^(iter)*(el+vec[h[1]-1])).complex_embeddings()[emb[0]], K(B^(iter)*(el+vec[h[1]-1])).complex_embeddings()[emb[1]])
+            if conjugates[emb[0]].is_real() == True:
+                bp = (  K(el).complex_embeddings()[emb[0]], 
+                        K(el).complex_embeddings()[emb[1]])
+                bp1 = ( K(el+vec[h[0]-1]).complex_embeddings()[emb[0]],
+                        K(el+vec[h[0]-1]).complex_embeddings()[emb[1]] )
+                bp2 = ( K(el+vec[h[0]-1]+vec[h[1]-1]).complex_embeddings()[emb[0]],
+                        K(el+vec[h[0]-1]+vec[h[1]-1]).complex_embeddings()[emb[1]])
+                bp3 = ( K(el+vec[h[1]-1]).complex_embeddings()[emb[0]],
+                        K(el+vec[h[1]-1]).complex_embeddings()[emb[1]])
                 return polygon2d([bp,bp1,bp2,bp3],color=col,thickness=.1,alpha = 0.8)
             else:   
-                bp = K(B^(iter)*el).complex_embeddings()[emb[0]]
-                bp1 = K(B^(iter)*(el+vec[h[0]-1])).complex_embeddings()[emb[0]]
-                bp2 = K(B^(iter)*(el+vec[h[0]-1]+vec[h[1]-1])).complex_embeddings()[emb[0]]
-                bp3 = K(B^(iter)*(el+vec[h[1]-1])).complex_embeddings()[emb[0]]
+                bp =  K(el).complex_embeddings()[emb[0]]
+                bp1 = K(el+vec[h[0]-1]).complex_embeddings()[emb[0]]
+                bp2 = K(el+vec[h[0]-1]+vec[h[1]-1]).complex_embeddings()[emb[0]]
+                bp3 = K(el+vec[h[1]-1]).complex_embeddings()[emb[0]]
                 return polygon2d([[bp[0],bp[1]],[bp1[0],bp1[1]],[bp2[0],bp2[1]],[bp3[0],bp3[1]]],color=col,thickness=.1,alpha = 0.8)     
             
         else:
             raise NotImplementedError("Plotting is implemented only for patches in two or three dimensions.")
         return G
- 
-    
-            
+
 
 class kPatch(SageObject):
-        
     def __init__(self, faces, face_contour=None):
         
         L = [kFace(f.vector(), f.type(), f.mult(), f.dual(), f.color()) for f in faces if (isinstance(f,kFace) and f.mult() != 0)]
@@ -354,22 +335,17 @@ class kPatch(SageObject):
             }
             
     def __len__(self):
-        
         return len(self._faces)
-    
     def __iter__(self):
-       
         return iter(self._faces)
-    
+       
     def __add__(self, other):
-        
         return self.union(other)
-    
+        
     def dimension(self):
         return self._dimension
-    
+
     def __repr__(self):
-        
         if len(self) <= 30:
             L = list(self)
             #L.sort(key=lambda x : (x.vector(),x.type(),x.mult(),x.dual()))
@@ -378,7 +354,6 @@ class kPatch(SageObject):
             return "Patch of %s faces"%len(self)
         
     def union(self, other):
-        
         if isinstance(other, kFace):
             return kPatch(list(self._faces) + [other])
         elif isinstance(other, kPatch):
@@ -386,12 +361,21 @@ class kPatch(SageObject):
         else:
             return kPatch(list(self._faces) + other)
         
-    
-    def plot(self):
-        
+    def plot(self, geosub):
+        r"""
+        EXAMPLES::
+
+            sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
+            sage: geosub = GeoSub(sub,2,1,1)
+            sage: P = kPatch([kFace((0,0,0),(1,2),d=1),
+            ....:             kFace((0,0,1),(1,3),d=1),
+            ....:             kFace((0,1,0),(2,1),d=1),
+            ....:             kFace((0,0,0),(3,1),d=1)])
+            sage: _ = P.plot(geosub)
+        """
         G = Graphics()
         for face in self:
-            G += face._plot()
+            G += face._plot(geosub)
         G.set_aspect_ratio(1)
         return G
               
@@ -408,7 +392,7 @@ class kPatch(SageObject):
      
              
 
-def psauto(sub,ps):
+def psauto(sub, ps):
     d = {}
     v = sub.values()
     for i in range(len(v)):
@@ -434,63 +418,155 @@ def invauto(sub,ps):
     return d         
       
 
-def abel(L):
-    return vector([L.count(i) for i in sub.keys()])
+def abelian(L, alphabet):
+    r"""
+    EXAMPLES::
 
-def GeoSub(patch,sub,presuf,dual):
-    Lwed = []
-    M = s.incidence_matrix()
-    for x in patch:
-        bigL= []
-        if dual == 0:
-            for y in x.type():
-                bigL.append(psauto(sub,presuf)[y])
-        else:
-            for y in x.type():
-                bigL.append(invauto(sub,presuf)[y])
-        Lpro = list(product(*bigL))
-        for el in Lpro:
-            z = []
-            w = []
-            for i in range(len(el)):
-                z += el[i][1]
-                w.append(el[i][0]) 
-            if dual == 0:
-                Lwed.append(kFace(M*x.vector() + abel(z),tuple(w),x.mult(),dual))
-            else:
-                Lwed.append(kFace(M.inverse()*(x.vector() - abel(z)),tuple(w),x.mult(),dual))
-    return kPatch(Lwed) 
+        sage: abelian([1,0,1,2,3,1,1,2,2], [0,1,2,3])
+        (1, 4, 3, 1)
+    """
+    return vector([L.count(i) for i in alphabet])
 
-class geosub(SageObject):
-    
+class GeoSub(SageObject):
+    r"""
+    EXAMPLES::
+
+        sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
+        sage: E = GeoSub(sub,2,1,0)
+        sage: E
+        E_2(1->12, 2->13, 3->1)
+    """
     def __init__(self, sigma, k, presuf, dual):
-        
+        self._sigma_dict = sigma
         self._sigma = WordMorphism(sigma)
+        self._k = k
+        self._presuf = presuf
+        self._dual = dual
+
+    @cached_method
+    def field(self):
+        r"""
+        EXAMPLES::
+
+            sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
+            sage: E = GeoSub(sub,2,1,0)
+            sage: E.field()
+            Number Field in b with defining polynomial x^3 - x^2 - x - 1
+        """
         M = self._sigma.incidence_matrix()
         b1 = max(M.eigenvalues())
         f = b1.minpoly()
         K = NumberField(f, 'b')
-        b, = K.gens()
-        #K.<b> = NumberField(M.characteristic_polynomial())
-        #self._matrix() = M
+        return K
         
-        self._d = len(sigma.keys())
-        self._k = k
-        self._dual = dual
-        self._field = K        
-        S = sigma.keys() 
-        alph = [x for x in tuples(S,k) if all(x[i] < x[i+1] for i in range(k-1))]
+    def gen(self):
+        r"""
+        EXAMPLES::
+
+            sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
+            sage: E = GeoSub(sub,2,1,0)
+            sage: E.gen()
+            b^2 - b - 1
+        """
+        b = self.field().gen()
+        if self._dual == 1:
+            return b
+        else:
+            return b**-1
         
+    def dominant_left_eigenvector(self):
+        r"""
+        EXAMPLES::
+
+            sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
+            sage: E = GeoSub(sub,2,1,0)
+            sage: E.dominant_left_eigenvector()
+            (1, b - 1, b^2 - b - 1)
+        """
+        return (self._sigma.incidence_matrix()-self.field().gen()*1).kernel().basis()[0]
+        
+    def dominant_right_eigenvector(self):
+        r"""
+        EXAMPLES::
+            
+            sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
+            sage: E = GeoSub(sub,2,1,0)
+            sage: E.dominant_right_eigenvector()
+            (1, b^2 - b - 1, -b^2 + 2*b)
+        """
+        a = self._sigma.incidence_matrix().transpose()-self.field().gen()
+        return a.kernel().basis()[0]
+
+    def complex_embeddings(self):
+        r"""
+        EXAMPLES::
+            
+            sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
+            sage: E = GeoSub(sub,2,1,0)
+            sage: E.complex_embeddings()
+            [-0.419643377607081 - 0.606290729207199*I,
+             -0.419643377607081 + 0.606290729207199*I,
+             1.83928675521416]
+        """
+        return self.field().gen().complex_embeddings()
+
+    def contracting_eigenvalues_indices(self):
+        r"""
+        EXAMPLES::
+            
+            sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
+            sage: E = GeoSub(sub,2,1,0)
+            sage: E.contracting_eigenvalues_indices()
+            [0, 1]
+        """
+        L = self.complex_embeddings()
+        return [L.index(x) for x in L if abs(x)<1]
+
+    def dilating_eigenvalues_indices(self):
+        r"""
+        EXAMPLES::
+            
+            sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
+            sage: E = GeoSub(sub,2,1,0)
+            sage: E.dilating_eigenvalues_indices()
+            [2]
+        """
+        L = self.complex_embeddings()
+        return [L.index(x) for x in L if abs(x)>1]
+
+    @cached_method
+    def base_iter(self):
+        r"""
+        EXAMPLES::
+            
+            sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
+            sage: E = GeoSub(sub,2,1,0)
+            sage: E.base_iter()
+            {(1, 2): [[(0, 0, 0), (1,)],
+            [(1, 0, 0), (2,)],
+            [(0, 0, 0), (1, 1)],
+            [(1, 0, 0), (1, 3)],
+            [(1, 0, 0), (2, 1)],
+            [(2, 0, 0), (2, 3)]],
+            (1, 3): [[(0, 0, 0), (1,)],
+            [(1, 0, 0), (2,)],
+            [(0, 0, 0), (1, 1)],
+            [(1, 0, 0), (2, 1)]],
+            (2, 3): [[(0, 0, 0), (1,)],
+            [(1, 0, 0), (3,)],
+            [(0, 0, 0), (1, 1)],
+            [(1, 0, 0), (3, 1)]]}
+        """
         X = {}
-    
-        for x in alph:
+        S = self._sigma_dict.keys()
+        for x in combinations(S,self._k):
             X[x] = []
             bigL = []
             for y in x:
                 if self._dual == 0:
-                    bigL.append(psauto(sigma,presuf)[y])
+                    bigL.append(psauto(self._sigma_dict,self._presuf)[y])
                 else:
-                    bigL.append(invauto(sigma,presuf)[y])
+                    bigL.append(invauto(self._sigma_dict,self._presuf)[y])
                 Lpro = list(product(*bigL))
                 for el in Lpro:
                     z = []
@@ -499,16 +575,26 @@ class geosub(SageObject):
                         z += el[i][1]
                         w.append(el[i][0])
                     if self._dual == 0:
-                        X[x].append([abel(z),tuple(w)])
+                        X[x].append([abelian(z, S),tuple(w)])
                     else:
-                        X[x].append([-M.inverse()*abel(z),tuple(w)])
-        
-        self._base_iter = X
-        
-            
+                        M = self._sigma.incidence_matrix()
+                        X[x].append([-M.inverse()*abelian(z, S),tuple(w)])
+        return X
            
     def __call__(self, patch, iterations=1):
-    
+        r"""
+        EXAMPLES::
+
+            sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
+            sage: geosub = GeoSub(sub,2,1,1)
+            sage: P = kPatch([kFace((0,0,0),(1,2),d=1),
+            ....:             kFace((0,0,1),(1,3),d=1),
+            ....:             kFace((0,1,0),(2,1),d=1),
+            ....:             kFace((0,0,0),(3,1),d=1)])
+            sage: Q = geosub(P, 6)
+            sage: Q
+            Patch of 32 faces
+        """
         if iterations == 0:
             return kPatch(patch)
         elif iterations < 0:
@@ -523,147 +609,26 @@ class geosub(SageObject):
                 old_faces = new_faces
             return kPatch(new_faces) 
     def matrix(self):
-        
         if self._dual == 0:
             return self._sigma.incidence_matrix()
         else:
             return self._sigma.incidence_matrix().inverse()
         
     def _call_on_face(self, face, color=None):
-              
         x_new = self.matrix() * face.vector()
         t = face.type()
         D = self._dual
         if D == 1:
-            return (kFace(x_new + (-1)^(self._dual)*y1, y2, (-1)^(sum(t)+sum(y2))*face.mult(), D) for (y1, y2) in self._base_iter[t] if len(y2) == self._k)
+            return (kFace(x_new + (-1)**(self._dual)*y1, y2, (-1)**(sum(t)+sum(y2))*face.mult(), D)                     for (y1, y2) in self.base_iter()[t] if len(y2) == self._k)
         else:
-            return (kFace(x_new + (-1)^(self._dual)*y1, y2, face.mult(), D) for (y1, y2) in self._base_iter[t] if len(y2) == self._k)
+            return (kFace(x_new + (-1)**(self._dual)*y1, y2, face.mult(), D) 
+                    for (y1, y2) in self._base_iter()[t] if len(y2) == self._k)
                 
-    
     def __repr__(self):
+        if self._dual==0: 
+            return "E_%s(%s)" % (self._k,str(self._sigma))
+        else: 
+            return "E*_%s(%s)" % (self._k,str(self._sigma))
         
-        if self._dual==0: return "E_%s(%s)" % (self._k,str(self._sigma))
-        else: return "E*_%s(%s)" % (self._k,str(self._sigma))
-        
-    def field(self):
-        
-        return self._field
-        
-    def gen(self):
-        
-        if self._dual == 1:
-            return self._field.gen()
-        else:
-            return (self._field.gen())^(-1)
-            
 
-class geosubNew(SageObject):
-    
-    def __init__(self, sigma, k, presuf, dual):
-        
-        self._sigma = WordMorphism(sigma)
-        M = self._sigma.incidence_matrix()
-        b1 = max(M.eigenvalues())
-        f = b1.minpoly()
-        K = NumberField(f, 'b')
-        b, = K.gens()
-        #K.<b> = NumberField(M.characteristic_polynomial())
-        #self._matrix() = M
-        
-        self._d = len(sigma.keys())
-        self._k = k
-        self._dual = dual
-        self._field = K    
-        
-        S = sigma.keys() 
-        alph = [x for x in tuples(S,k) if all(x[i] < x[i+1] for i in range(k-1))]
-        
-        X = {}
-        E = geosub(sigma,k,presuf,dual)
-        
-        for a in alph:
-            P = kPatch([kFace(zero_vector(self._d),a)])
-            X[a] = list(newthing(newthing(E(P,1),0),0))    #  double newthing if necessary
-    
-        self._base_iter = X
-              
-    def __call__(self, patch, iterations=1):
-    
-        if iterations == 0:
-            return kPatch(patch)
-        elif iterations < 0:
-            raise ValueError("iterations (=%s) must be >= 0." % iterations)
-        else:
-            old_faces = patch
-            for i in range(iterations):
-                new_faces = []
-                for f in old_faces:
-                    if f.mult() != 0:
-                        new_faces.extend(self._call_on_face(f, color=f.color()))
-                old_faces = new_faces
-            return kPatch(new_faces) 
-    
-    def matrix(self):
-        
-        if self._dual == 0:
-            return self._sigma.incidence_matrix()
-        else:
-            return self._sigma.incidence_matrix().inverse()
-     
-    def _call_on_face(self, face, color=None):
-              
-        x_new = self.matrix() * face.vector()
-        t = face.type()
-        D = self._dual
-        return (kFace(x_new + (-1)^(self._dual)*y.vector(), y.type(), y.mult(), D) for y in self._base_iter[t])    
-    
-    def __repr__(self):
-        
-        if self._dual==0: return "modified E_%s(%s)" % (self._k,str(self._sigma))
-        else: return "modified E*_%s(%s)" % (self._k,str(self._sigma))
-def Fcoord(face):
-    base = face.vector()
-    sh = face.type()
-    return [base,base+abel([sh[0]]),base + abel([sh[1]]),base + abel([sh[0],sh[1]])]
 
-def findexagons(L):
-    Lfin = []
-    for i in range(len(L)):
-        for j in range(i+1,len(L)):
-            for k in range(j+1,len(L)):
-                A1 = set([tuple(x) for x in Fcoord(L[i])])
-                A2 = set([tuple(x) for x in Fcoord(L[j])])
-                A3 = set([tuple(x) for x in Fcoord(L[k])])
-                if len(A1.intersection(A2)) == 2 and len(A1.intersection(A3)) == 2 and len(A2.intersection(A3)) == 2:
-                    Lfin.append([L[i],L[j],L[k]])
-    return Lfin  
-
-def flip(patch):
-    F1 = patch[0] 
-    F2 = patch[1] 
-    F3 = patch[2]
-    a1 = set([tuple(x) for x in Fcoord(F1)])
-    a2 = set([tuple(x) for x in Fcoord(F2)])
-    a3 = set([tuple(x) for x in Fcoord(F3)])
-    Pcom = a1.intersection(a2).intersection(a3)
-    el1 = a2.intersection(a3) - a1.intersection(a2).intersection(a3)
-    el2 = a1.intersection(a3) - a1.intersection(a2).intersection(a3)
-    el3 = a1.intersection(a2) - a1.intersection(a2).intersection(a3)
-    t1 = vector(list(el1)[0])-vector(list(Pcom)[0])
-    t2 = vector(list(el2)[0])-vector(list(Pcom)[0])
-    t3 = vector(list(el3)[0])-vector(list(Pcom)[0])
-    return kPatch([kFace(F1.vector() + t1,F1.type(),F1.mult()),kFace(F2.vector() + t2,F2.type(),F2.mult()),kFace(F3.vector() + t3,F3.type(),F3.mult())])
-
-def newthing(patch,force):
-    
-    Ex = findexagons(list(patch))
-    P = patch
-    for y in Ex:
-        if len(set([y[0].type(),y[1].type(),y[2].type()])) == 3:
-            Pnew = P + kPatch([kFace(face.vector(),face.type(),-face.mult(),face.dual()) for face in y]) + flip(y)
-            if force == 0:
-                if len(Pnew) < len(P):
-                    P = Pnew
-            else:
-                P = Pnew        
-    return P
