@@ -6,23 +6,23 @@ AUTHORS:
 
  - Milton Minervino, 2017, initial version
  - Sébastien Labbé, July 6th 2017: added doctests, package, improve object
-   oriented structure of the classes
+   oriented structure of the classes, multiplicity stored in the patch not
+   in the faces. Fixed the creation of patchs (linear time instead of
+   quadratic time). Added a dozen of doctests.
 
 .. TODO::
 
     - Clean method kFace._plot(geosub) so that it takes projection
       information (like vectors or matrix or ...) instead of the geosub
 
-    - Patch should contain the multiplicity, not the faces. 
-    
-    - Fix the addition of patchs (linear time instead of quadratic time).
+    - Fix some proper ordering for the faces (problems with doctests).
 
     - Use rainbow() or something else to automatically choose colors
 
     - Allow the user to choose the colors of faces
 
     - input dual should be a bool True or False not 0 or 1
- 
+
 EXAMPLES::
 
     sage: from EkEkstar import GeoSub, kPatch, kFace
@@ -34,7 +34,7 @@ EXAMPLES::
     ....:             kFace((0,0,0),(3,1),d=1)])
     sage: Q = geosub(P, 6)
     sage: Q
-    Patch of 32 faces
+    Patch of 47 faces
     sage: _ = Q.plot(geosub)
 
 REMAINDER:
@@ -45,13 +45,15 @@ This is a remainder for how to get the import statements::
     from sage.plot.graphics import Graphics
 """
 from itertools import product, combinations
+from collections import Counter
+from numpy import argsort
 from sage.misc.cachefunc import cached_method
 from sage.structure.sage_object import SageObject
 from sage.rings.integer_ring import ZZ
 from sage.modules.free_module_element import vector, zero_vector
-from sage.groups.perm_gps.permgroup_named import SymmetricGroup
 from sage.rings.all import CC
 from sage.combinat.words.morphism import WordMorphism
+from sage.combinat.permutation import Permutation
 from sage.rings.number_field.number_field import NumberField
 from sage.plot.colors import Color
 from sage.plot.graphics import Graphics
@@ -70,141 +72,169 @@ class kFace(SageObject):
         sage: from EkEkstar import kFace
         sage: F = kFace((0,0,0),(1,2))
         sage: F
-        +[(0, 0, 0), (1, 2)]
+        [(0, 0, 0), (1, 2)]
         
     Face based at (0,0,0) of type (3,1): the type is changed to (1,3) 
     and the multiplicity of the face turns to -1::
 
         sage: kFace((0,0,0),(3,1))
-        -[(0, 0, 0), (1, 3)]
+        [(0, 0, 0), (3, 1)]
         
     Dual face based at (0,0,0,0) of type (1) with multiplicity -3::
         
-        sage: kFace((0,0,0,0),(1),m=-3,d=1)
-        -3[(0, 0, 0, 0), 1]*
+        sage: kFace((0,0,0,0),(1),d=1)
+        [(0, 0, 0, 0), 1]*
     """
-    def __init__(self, v, t, m=1, d=0, color=None):
+    def __init__(self, v, t, d=0, color=None):
         r"""
         EXAMPLES::
 
             sage: from EkEkstar import kFace
             sage: F = kFace((0,0,0),(1,2))
             sage: F
-            +[(0, 0, 0), (1, 2)]
+            [(0, 0, 0), (1, 2)]
         """
-        from sage.groups.perm_gps.permgroup_named import SymmetricGroup
-        from sage.functions.generalized import sign
-
         self._vector = (ZZ**len(v))(v)
         self._vector.set_immutable()
         #if not((t in ZZ) and 1 <= t <= len(v)):
         #    raise ValueError('The type must be an integer between 1 and len(v)')
-        if (t in ZZ):
+
+        if t in ZZ:
             self._type = t
-            self._mult = m
         else:
-            t1 = list(t)
-            t1.sort()
-            self._type = tuple(t1)
-            if all(t1[i] < t1[i+1] for i in range(len(t1)-1)):
-                L = [sign(p) for p in SymmetricGroup(len(self._type)) if p(list(t)) == t1]
-                self._mult = L[0]*m
-            else:
-                self._mult = 0
+            self._type = t
         
         self._dual = d
+
+        self._color = color
         
-        if color is None:
-            if self._type == (1,):
+
+
+    def vector(self):
+        return self._vector
+
+    def type(self):
+        return self._type
+
+    def dual(self):
+        return self._dual
+
+    def color(self, color=None):
+        if color is not None:
+            self._color = Color(color)
+            return
+        if self._color is None:
+            sorted_type = self.sorted_type()
+            if sorted_type == (1,):
                 self._color = Color((1,0,0))
-            elif self._type == (2,):
+            elif sorted_type == (2,):
                 self._color = Color((0,0,1))
-            elif self._type == (3,):
+            elif sorted_type == (3,):
                 self._color = Color((0,1,0))
-            elif self._type == (4,):
+            elif sorted_type == (4,):
                 self._color = Color('yellow')
-            elif self._type == (5,):
+            elif sorted_type == (5,):
                 self._color = Color('purple')    
-            elif self._type == (1,2):
+            elif sorted_type == (1,2):
                 self._color = Color('red')  
-            elif self._type == (1,3):
+            elif sorted_type == (1,3):
                 self._color = Color('blue')   
-            elif self._type == (1,4):
+            elif sorted_type == (1,4):
                 self._color = Color('green')
-            elif self._type == (1,5):
+            elif sorted_type == (1,5):
                 self._color = Color('purple')     
-            elif self._type == (2,3):
+            elif sorted_type == (2,3):
                 self._color = Color('orange') 
-            elif self._type == (2,4):
+            elif sorted_type == (2,4):
                 self._color = Color('pink')
-            elif self._type == (2,5):
+            elif sorted_type == (2,5):
                 self._color = Color('brown')     
-            elif self._type == (3,4):
+            elif sorted_type == (3,4):
                 self._color = Color('yellow')  
-            elif self._type == (3,5):
+            elif sorted_type == (3,5):
                 self._color = Color('darkgreen')
-            elif self._type == (4,5):
+            elif sorted_type == (4,5):
                 self._color = Color('lightblue') 
-            elif self._type == (1,2,3):
+            elif sorted_type == (1,2,3):
                 self._color = Color('red')  
-            elif self._type == (1,2,4):
+            elif sorted_type == (1,2,4):
                 self._color = Color('blue')   
-            elif self._type == (1,2,5):
+            elif sorted_type == (1,2,5):
                 self._color = Color('green')
-            elif self._type == (1,3,4):
+            elif sorted_type == (1,3,4):
                 self._color = Color('purple')     
-            elif self._type == (1,3,5):
+            elif sorted_type == (1,3,5):
                 self._color = Color('orange') 
-            elif self._type == (1,4,5):
+            elif sorted_type == (1,4,5):
                 self._color = Color('pink')
-            elif self._type == (2,3,4):
+            elif sorted_type == (2,3,4):
                 self._color = Color('brown')     
-            elif self._type == (2,3,5):
+            elif sorted_type == (2,3,5):
                 self._color = Color('yellow')  
-            elif self._type == (2,4,5):
+            elif sorted_type == (2,4,5):
                 self._color = Color('darkgreen')
-            elif self._type == (3,4,5):
+            elif sorted_type == (3,4,5):
                 self._color = Color('lightblue')  
             #else:
             #    print(self._type)
             #    lol = RR(len(self._type)+1)
             #    self._color = Color(self._type[0]/lol,self._type[1]/lol,self._type[2]/lol)                                            
+        return self._color
+            
+    def sorted_type(self):
+        return tuple(sorted(self._type))
+        
+    @cached_method
+    def sign(self):
+        r"""
+        EXAMPLES::
+        
+            sage: from EkEkstar import kFace
+            sage: kFace((0,0,0),(1,2,3,4,5)).sign()
+            1
+            sage: kFace((0,0,0),(1,2,3,4,4)).sign()
+            0
+            sage: kFace((0,0,0),(1,2,3,5,4)).sign()
+            -1
+        """
+        sorted_type = self.sorted_type()
+        if all(sorted_type[i] < sorted_type[i+1] for i in range(len(sorted_type)-1)):
+            p = argsort(self._type) + 1
+            return Permutation(p).sign()
         else:
-            self._color = color
+            return 0
 
     def __repr__(self):
         r"""
         String representation.
+
+        EXAMPLES::
+
+            sage: from EkEkstar import kFace
+            sage: kFace((0,0,0),(1,2,3,4,5))
+            [(0, 0, 0), (1, 2, 3, 4, 5)]
+            sage: kFace((0,0,0),(1,2,3,4,4))
+            [(0, 0, 0), (1, 2, 3, 4, 4)]
+            sage: kFace((0,0,0),(1,2,3,5,4))
+            [(0, 0, 0), (1, 2, 3, 5, 4)]
+
+        Dual face::
+
+            sage: kFace((0,0,0), (1,2,3), d=1)
+            [(0, 0, 0), (1, 2, 3)]*
         """
-        if self.dual() == 1:
-            if self.mult() == -1:
-                return "%s[%s, %s]*"%('-',self.vector(), self.type())
-            elif self.mult() == 1:
-                return "%s[%s, %s]*"%('+',self.vector(), self.type())
-            elif self.mult() == 0:
-                return "[]*"
-            else:
-                return "%s[%s, %s]*"%(self.mult(),self.vector(), self.type())
-        else:
-            if self.mult() == -1:
-                return "%s[%s, %s]"%('-',self.vector(), self.type())
-            elif self.mult() == 1:
-                return "%s[%s, %s]"%('+',self.vector(), self.type())
-            elif self.mult() == 0:
-                return "[]"
-            else:
-                return "%s[%s, %s]"%(self.mult(),self.vector(), self.type())
+        dual = '*' if self.dual() == 1 else ''
+        return "[{}, {}]{}".format(self.vector(), self.type(), dual)
 
     def __eq__(self, other):
         return (isinstance(other, kFace) and
                 self.vector() == other.vector() and
                 self.type() == other.type() and 
-                self.mult() == other.mult() and 
                 self.dual() == other.dual())
 
     @cached_method
     def __hash__(self):
-        return hash((self.vector(), self.type(), self.mult(), self.dual()))
+        return hash((self.vector(), self.type(), self.dual()))
 
     def __add__(self, other):
         r"""
@@ -212,9 +242,9 @@ class kFace(SageObject):
         
             sage: from EkEkstar import kFace
             sage: kFace((0,0,0),(1,3)) + kFace((0,0,0),(3,1))
-            Patch: []
+            Empty patch
             sage: kFace((0,0,0),(1,3)) + kFace((0,0,0),(1,3))
-            Patch: [2[(0, 0, 0), (1, 3)]]
+            Patch: 2[(0, 0, 0), (1, 3)]
 
         """
         if isinstance(other, kFace):
@@ -222,24 +252,6 @@ class kFace(SageObject):
         else:
             return kPatch(other).union(self)
 
-    def vector(self):
-        return self._vector
-
-    def type(self):
-        return self._type
-        
-    def mult(self):
-        return self._mult
-
-    def dual(self):
-        return self._dual
-
-    def color(self, color=None):
-        if color is None:
-            return self._color
-        else:
-            self._color = Color(color)
-            
     def _plot(self, geosub):
         r"""
         EXAMPLES::
@@ -323,61 +335,192 @@ class kFace(SageObject):
 
 
 class kPatch(SageObject):
+    r"""
+    EXAMPLES::
+
+        sage: from EkEkstar import kPatch, kFace
+        sage: P = kPatch([kFace((0,0,0),(1,2),d=1),
+        ....:             kFace((0,0,1),(1,3),d=1),
+        ....:             kFace((0,1,0),(2,1),d=1),
+        ....:             kFace((0,0,0),(3,1),d=1)])
+        sage: P
+        Patch: 1[(0, 0, 0), (1, 2)]* + 1[(0, 0, 1), (1, 3)]* + -1[(0, 1, 0), (1, 2)]* + -1[(0, 0, 0), (1, 3)]*
+    """
     def __init__(self, faces, face_contour=None):
-        L = [kFace(f.vector(), f.type(), f.mult(), f.dual(), f.color()) for f in faces if (isinstance(f,kFace) and f.mult() != 0)]
-        #self._faces = frozenset(kFace(x.vector(),x.type(),L.count(x), x.dual(), x.color()) for x in set(L)) 
-        #[(x,L.count(x)) for x in set(L)]
-        
-        L2 = []
-        for x in L:
-            L1 = [y for y in L if (y.vector(),y.type()) == (x.vector(),x.type())]
-            s = sum([L.count(x)*x.mult() for x in set(L1)])
-            if s != 0:
-                L2 += [kFace(x.vector(),x.type(),s,x.dual(),x.color())] 
-        self._faces = set(L2)
-        
+        r"""
+        EXAMPLES::
+
+        TESTS:
+
+        Cancellation because of ordering of the type::
+
+            sage: from EkEkstar import kFace, kPatch
+            sage: L = [kFace((0,0,0),(1,3)), kFace((0,0,0),(3,1))]
+            sage: kPatch(L)
+            Empty patch
+
+        Repetition in the list::
+
+            sage: L = [kFace((0,0,0),(1,3)), kFace((0,0,0),(1,3))]
+            sage: kPatch(L)
+            Patch: 2[(0, 0, 0), (1, 3)]
+        """
+        # Compute the formal sum with support on canonical faces
+        self._faces = Counter()
+        if isinstance(faces, list):
+            for f in faces:
+                canonical = kFace(f.vector(), f.sorted_type(), d=f.dual(), color=f.color())
+                self._faces[canonical] += f.sign()
+        else:
+            for (f,m) in faces.items():
+                canonical = kFace(f.vector(), f.sorted_type(), d=f.dual(), color=f.color())
+                self._faces[canonical] += m*f.sign()
+
+        # Remove faces with multiplicty zero from the formal sum
+        for f,m in self._faces.items():
+            if m == 0:
+                del self._faces[f]
+
         try:
             f0 = next(iter(self._faces))
         except StopIteration:
             self._dimension = None
         else:
             self._dimension = len(f0.vector())
+
         if not face_contour is None:
             self._face_contour = face_contour
         else:
             self._face_contour = {
-                    1: [vector(_) for _ in [(0,0,0),(0,1,0),(0,1,1),(0,0,1)]],
-                    2: [vector(_) for _ in [(0,0,0),(0,0,1),(1,0,1),(1,0,0)]],
-                    3: [vector(_) for _ in [(0,0,0),(1,0,0),(1,1,0),(0,1,0)]]
+                    1: map(vector, [(0,0,0),(0,1,0),(0,1,1),(0,0,1)]),
+                    2: map(vector, [(0,0,0),(0,0,1),(1,0,1),(1,0,0)]),
+                    3: map(vector, [(0,0,0),(1,0,0),(1,1,0),(0,1,0)])
             }
             
     def __len__(self):
         return len(self._faces)
 
     def __iter__(self):
-        return iter(self._faces)
+        return iter(self._faces.items())
        
     def __add__(self, other):
-        return self.union(other)
+        r"""
+        EXAMPLES::
+
+            sage: from EkEkstar import kFace, kPatch
+            sage: P = kPatch([kFace((0,0,0),(1,3))])
+            sage: Q = kPatch([kFace((0,0,0),(3,1))])
+            sage: P + Q
+            Empty patch
+            sage: Q + P
+            Empty patch
+
+        ::
+
+            sage: P + P
+            Patch: 2[(0, 0, 0), (1, 3)]
+
+        ::
+
+            sage: P = kPatch([kFace((0,0,0),(1,2),d=1),
+            ....:             kFace((0,0,1),(1,3),d=1),
+            ....:             kFace((0,1,0),(2,1),d=1)])
+            sage: Q = kPatch([kFace((0,1,0),(2,1),d=1),
+            ....:             kFace((0,0,0),(3,1),d=1)])
+            sage: P + Q
+            Patch: 1[(0, 0, 0), (1, 2)]* + -1[(0, 0, 0), (1, 3)]* + 1[(0, 0, 1), (1, 3)]* + -2[(0, 1, 0), (1, 2)]*
+        """
+        C = Counter()
+        for (f,m) in self._faces.items():
+            C[f] += m
+        for (f,m) in other._faces.items():
+            C[f] += m
+        return kPatch(C)
         
     def dimension(self):
+        r"""
+        EXAMPLES::
+
+            sage: from EkEkstar import kFace, kPatch
+            sage: P = kPatch([kFace((0,0,0),(1,2),d=1),
+            ....:             kFace((0,0,1),(1,3),d=1),
+            ....:             kFace((0,1,0),(2,1),d=1),
+            ....:             kFace((0,0,0),(3,1),d=1)])
+            sage: P.dimension()
+            3
+        """
         return self._dimension
 
     def __repr__(self):
-        if len(self) <= 30:
-            L = list(self)
-            #L.sort(key=lambda x : (x.vector(),x.type(),x.mult(),x.dual()))
-            return "Patch: %s"%L
+        r"""
+        EXAMPLES::
+
+            sage: from EkEkstar import kFace, kPatch
+            sage: P = kPatch([kFace((0,0,0),(1,2),d=1),
+            ....:             kFace((0,0,1),(1,3),d=1),
+            ....:             kFace((0,1,0),(2,1),d=1),
+            ....:             kFace((0,0,0),(3,1),d=1)])
+            sage: P
+            Patch: 1[(0, 0, 0), (1, 2)]* + 1[(0, 0, 1), (1, 3)]* + -1[(0, 1, 0), (1, 2)]* + -1[(0, 0, 0), (1, 3)]*
+
+        With multiplicity::
+
+            sage: P = kPatch({kFace((0,0,0),(1,2),d=1):11,
+            ....:             kFace((0,0,1),(1,3),d=1):22,
+            ....:             kFace((0,1,0),(2,1),d=1):33,
+            ....:             kFace((0,0,0),(3,1),d=1):-44})
+            sage: P
+            Patch: 11[(0, 0, 0), (1, 2)]* + 44[(0, 0, 0), (1, 3)]* + 22[(0, 0, 1), (1, 3)]* + -33[(0, 1, 0), (1, 2)]*
+
+        Empty patch::
+
+            sage: kPatch([])
+            Empty patch
+        """
+        if len(self) == 0:
+            return "Empty patch"
+        elif len(self) <= 30:
+            L = ["{}{}".format(m,f) for (f,m) in sorted(self)]
+            return "Patch: %s" % ' + '.join(L)
         else:
             return "Patch of %s faces"%len(self)
         
     def union(self, other):
+        r"""
+        INPUT:
+
+        - ``other`` -- a face, a patch or a list of faces
+
+        EXAMPLES::
+
+            sage: from EkEkstar import kFace, kPatch
+            sage: P = kPatch([kFace((0,0,0),(1,2),d=1),
+            ....:             kFace((0,0,1),(1,3),d=1)])
+            sage: f = kFace((0,1,0),(2,1),d=1)
+            sage: g = kFace((0,0,0),(3,1),d=1)
+
+        A patch union with a face::
+
+            sage: P.union(f)
+            Patch: 1[(0, 0, 0), (1, 2)]* + 1[(0, 0, 1), (1, 3)]* + -1[(0, 1, 0), (1, 2)]*
+
+        A patch union with a patch::
+
+            sage: P.union(P)
+            Patch: 2[(0, 0, 0), (1, 2)]* + 2[(0, 0, 1), (1, 3)]*
+
+        A patch union with a list of faces::
+
+            sage: P.union([f,g])
+            Patch: 1[(0, 0, 0), (1, 2)]* + -1[(0, 0, 0), (1, 3)]* + 1[(0, 0, 1), (1, 3)]* + -1[(0, 1, 0), (1, 2)]*
+
+        """
         if isinstance(other, kFace):
-            return kPatch(list(self._faces) + [other])
+            return self + kPatch([other])
         elif isinstance(other, kPatch):
-            return kPatch(list(self._faces) + list(other._faces))
+            return self + other
         else:
-            return kPatch(list(self._faces) + other)
+            return self + kPatch(other)
         
     def plot(self, geosub):
         r"""
@@ -393,7 +536,7 @@ class kPatch(SageObject):
             sage: _ = P.plot(geosub)
         """
         G = Graphics()
-        for face in self:
+        for face,m in self:
             G += face._plot(geosub)
         G.set_aspect_ratio(1)
         return G
@@ -624,7 +767,7 @@ class GeoSub(SageObject):
             ....:             kFace((0,0,0),(3,1),d=1)])
             sage: Q = geosub(P, 6)
             sage: Q
-            Patch of 32 faces
+            Patch of 47 faces
         """
         if iterations == 0:
             return kPatch(patch)
@@ -633,27 +776,83 @@ class GeoSub(SageObject):
         else:
             old_faces = patch
             for i in range(iterations):
-                new_faces = []
-                for f in old_faces:
-                    if f.mult() != 0:
-                        new_faces.extend(self._call_on_face(f, color=f.color()))
+                new_faces = kPatch([])
+                for f,m in old_faces:
+                    if m != 0:
+                        new_faces += kPatch(self._call_on_face(f, color=f.color()))
                 old_faces = new_faces
-            return kPatch(new_faces) 
+            return new_faces
+
     def matrix(self):
+        r"""
+        EXAMPLES::
+
+            sage: from EkEkstar import GeoSub
+            sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
+            sage: E = GeoSub(sub,2,1,0)
+            sage: E.matrix()
+            [1 1 1]
+            [1 0 0]
+            [0 1 0]
+        """
         if self._dual == 0:
             return self._sigma.incidence_matrix()
         else:
             return self._sigma.incidence_matrix().inverse()
         
     def _call_on_face(self, face, color=None):
+        r"""
+        INPUT:
+
+        - ``face`` -- a face
+        - ``color`` -- a color or None
+
+        OUTPUT:
+
+            dict of the form ``{face:multiplicity for face in faces}``
+
+        EXAMPLES::
+            
+            sage: from EkEkstar import GeoSub, kFace
+            sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
+            sage: E = GeoSub(sub,2,1,0)
+
+        The available face type are::
+
+            sage: E.base_iter().keys()
+            [(1, 2), (1, 3), (2, 3)]
+
+        For each we get::
+
+            sage: d = E._call_on_face(kFace((10,11,12), (1,2)))
+            sage: sorted(d.items())
+            [([(34, 10, 11), (1, 3)], 1),
+             ([(33, 10, 11), (1, 1)], 1),
+             ([(34, 10, 11), (2, 1)], 1),
+             ([(35, 10, 11), (2, 3)], 1)]
+            sage: sorted(E._call_on_face(kFace((10,11,12), (1,3))).items())
+            [([(34, 10, 11), (2, 1)], 1), ([(33, 10, 11), (1, 1)], 1)]
+            sage: E._call_on_face(kFace((10,11,12), (2,3)))
+            {[(33, 10, 11), (1, 1)]: 1, [(34, 10, 11), (3, 1)]: 1}
+
+        TESTS:
+
+        This is an error::
+
+            sage: E._call_on_face(kFace((10,11,12), (2,4)))
+            Traceback (most recent call last):
+            ...
+            KeyError: (2, 4)
+        """
         x_new = self.matrix() * face.vector()
         t = face.type()
         D = self._dual
         if D == 1:
-            return (kFace(x_new + (-1)**(self._dual)*y1, y2, (-1)**(sum(t)+sum(y2))*face.mult(), D)                     for (y1, y2) in self.base_iter()[t] if len(y2) == self._k)
+            return {kFace(x_new + (-1)**(self._dual)*vv, tt, d=D):(-1)**(sum(t)+sum(tt))*face.sign()
+                    for (vv, tt) in self.base_iter()[t] if len(tt) == self._k}
         else:
-            return (kFace(x_new + (-1)**(self._dual)*y1, y2, face.mult(), D) 
-                    for (y1, y2) in self._base_iter()[t] if len(y2) == self._k)
+            return {kFace(x_new + (-1)**(self._dual)*vv, tt, d=D):face.sign()
+                    for (vv, tt) in self.base_iter()[t] if len(tt) == self._k}
                 
     def __repr__(self):
         r"""
