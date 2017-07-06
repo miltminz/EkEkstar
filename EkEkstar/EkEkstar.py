@@ -20,6 +20,8 @@ AUTHORS:
     - Use rainbow() or something else to automatically choose colors
 
     - Allow the user to choose the colors of faces
+
+    - input dual should be a bool True or False not 0 or 1
  
 EXAMPLES::
 
@@ -169,6 +171,7 @@ class kFace(SageObject):
             #    self._color = Color(self._type[0]/lol,self._type[1]/lol,self._type[2]/lol)                                            
         else:
             self._color = color
+
     def __repr__(self):
         r"""
         String representation.
@@ -191,16 +194,18 @@ class kFace(SageObject):
                 return "[]"
             else:
                 return "%s[%s, %s]"%(self.mult(),self.vector(), self.type())
+
     def __eq__(self, other):
         return (isinstance(other, kFace) and
                 self.vector() == other.vector() and
                 self.type() == other.type() and 
                 self.mult() == other.mult() and 
-                self.dual() == other.dual()
-               )
+                self.dual() == other.dual())
+
     @cached_method
     def __hash__(self):
         return hash((self.vector(), self.type(), self.mult(), self.dual()))
+
     def __add__(self, other):
         r"""
         EXAMPLES::
@@ -216,19 +221,20 @@ class kFace(SageObject):
             return kPatch([self, other])
         else:
             return kPatch(other).union(self)
+
     def vector(self):
         return self._vector
+
     def type(self):
-        
         return self._type
+        
     def mult(self):
-        
         return self._mult
+
     def dual(self):
-        
         return self._dual
+
     def color(self, color=None):
-        
         if color is None:
             return self._color
         else:
@@ -318,7 +324,6 @@ class kFace(SageObject):
 
 class kPatch(SageObject):
     def __init__(self, faces, face_contour=None):
-        
         L = [kFace(f.vector(), f.type(), f.mult(), f.dual(), f.color()) for f in faces if (isinstance(f,kFace) and f.mult() != 0)]
         #self._faces = frozenset(kFace(x.vector(),x.type(),L.count(x), x.dual(), x.color()) for x in set(L)) 
         #[(x,L.count(x)) for x in set(L)]
@@ -348,6 +353,7 @@ class kPatch(SageObject):
             
     def __len__(self):
         return len(self._faces)
+
     def __iter__(self):
         return iter(self._faces)
        
@@ -501,7 +507,8 @@ class GeoSub(SageObject):
             sage: E.dominant_left_eigenvector()
             (1, b - 1, b^2 - b - 1)
         """
-        return (self._sigma.incidence_matrix()-self.field().gen()*1).kernel().basis()[0]
+        M = self._sigma.incidence_matrix()-self.field().gen()
+        return M.left_kernel().basis()[0]
         
     def dominant_right_eigenvector(self):
         r"""
@@ -513,8 +520,8 @@ class GeoSub(SageObject):
             sage: E.dominant_right_eigenvector()
             (1, b^2 - b - 1, -b^2 + 2*b)
         """
-        a = self._sigma.incidence_matrix().transpose()-self.field().gen()
-        return a.kernel().basis()[0]
+        M = self._sigma.incidence_matrix()-self.field().gen()
+        return M.right_kernel().basis()[0]
 
     def complex_embeddings(self):
         r"""
@@ -649,7 +656,17 @@ class GeoSub(SageObject):
                     for (y1, y2) in self._base_iter()[t] if len(y2) == self._k)
                 
     def __repr__(self):
-        if self._dual==0: 
+        r"""
+        EXAMPLES::
+            
+            sage: from EkEkstar import GeoSub
+            sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
+            sage: GeoSub(sub, 2, 1, 0)
+            E_2(1->12, 2->13, 3->1)
+            sage: GeoSub(sub, 2, 1, 1)
+            E*_2(1->12, 2->13, 3->1)
+        """
+        if self._dual == 0: 
             return "E_%s(%s)" % (self._k,str(self._sigma))
         else: 
             return "E*_%s(%s)" % (self._k,str(self._sigma))
