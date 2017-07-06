@@ -69,11 +69,26 @@ def dil(sub):
 
 class kFace(SageObject):
     r"""
-    EXAMPLES::
+    EXAMPLES:
+
+    Face based at (0,0,0) of type (1,2)::
 
         sage: F = kFace((0,0,0),(1,2))
         sage: F
         +[(0, 0, 0), (1, 2)]
+        
+    Face based at (0,0,0) of type (3,1): the type is changed to (1,3) 
+    and the multiplicity of the face turns to -1::
+
+        sage: kFace((0,0,0),(3,1))
+        -[(0, 0, 0), (1, 3)]
+        
+    Dual face based at (0,0,0,0) of type (1) with multiplicity -3::
+        
+        sage: kFace((0,0,0,0),(1),m=-3,d=1)
+        -3[(0, 0, 0, 0), 1]*
+
+        
     """
     def __init__(self, v, t, m=1, d=0, color=None):
         r"""
@@ -160,6 +175,8 @@ class kFace(SageObject):
             #    self._color = Color(self._type[0]/lol,self._type[1]/lol,self._type[2]/lol)                                            
         else:
             self._color = color
+   
+   
     def __repr__(self):
         r"""
         String representation.
@@ -189,15 +206,26 @@ class kFace(SageObject):
         return (isinstance(other, kFace) and
                 self.vector() == other.vector() and
                 self.type() == other.type() and 
-                self.mult() == other.mult()
+                self.mult() == other.mult() and 
+                self.dual() == other.dual()
                )
+    
+    
     def __hash__(self):
         
         return hash((self.vector(), self.type(), self.mult(), self.dual()))
     
+    
     def __add__(self, other):
+        r"""
+        EXAMPLES::
         
-        
+            sage: kFace((0,0,0),(1,3)) + kFace((0,0,0),(3,1))
+            Patch: []
+            sage: kFace((0,0,0),(1,3)) + kFace((0,0,0),(1,3))
+            Patch: [2[(0, 0, 0), (1, 3)]]
+
+        """
         if isinstance(other, kFace):
             return kPatch([self, other])
         else:
@@ -207,6 +235,7 @@ class kFace(SageObject):
     def vector(self):
         
         return self._vector
+    
     def type(self):
         
         return self._type
@@ -218,13 +247,13 @@ class kFace(SageObject):
     def dual(self):
         
         return self._dual
+    
     def color(self, color=None):
         
         if color is None:
             return self._color
         else:
             self._color = Color(color)
-            
             
     def _plot(self):
         
