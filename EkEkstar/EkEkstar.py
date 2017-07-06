@@ -73,6 +73,7 @@ class kFace(SageObject):
 
     Face based at (0,0,0) of type (1,2)::
 
+        sage: from EkEkstar import kFace
         sage: F = kFace((0,0,0),(1,2))
         sage: F
         +[(0, 0, 0), (1, 2)]
@@ -94,11 +95,14 @@ class kFace(SageObject):
         r"""
         EXAMPLES::
 
+            sage: from EkEkstar import kFace
             sage: F = kFace((0,0,0),(1,2))
             sage: F
             +[(0, 0, 0), (1, 2)]
         """
         from sage.groups.perm_gps.permgroup_named import SymmetricGroup
+        from sage.functions.generalized import sign
+
         self._vector = (ZZ**len(v))(v)
         self._vector.set_immutable()
         #if not((t in ZZ) and 1 <= t <= len(v)):
@@ -220,6 +224,7 @@ class kFace(SageObject):
         r"""
         EXAMPLES::
         
+            sage: from EkEkstar import kFace
             sage: kFace((0,0,0),(1,3)) + kFace((0,0,0),(3,1))
             Patch: []
             sage: kFace((0,0,0),(1,3)) + kFace((0,0,0),(1,3))
