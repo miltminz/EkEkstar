@@ -1,10 +1,45 @@
+r"""
+EkEkStar
+
+AUTHOR:
+
+ - Milton Minervino, 2017
+ 
+
+EXAMPLES::
+
+    sage: # global examples
+
+This is a remainder for me::
+
+    sage: import_statements('Graphics')
+    from sage.plot.graphics import Graphics
+
+"""
 from itertools import product
+from sage.structure.sage_object import SageObject
+from sage.rings.integer_ring import ZZ
+from sage.modules.free_module_element import vector
+from sage.groups.perm_gps.permgroup_named import SymmetricGroup
+from sage.rings.all import CC
+from sage.combinat.words.morphism import WordMorphism
+from sage.rings.number_field.number_field import NumberField
+from sage.plot.colors import Color
+from sage.plot.graphics import Graphics
+from sage.plot.polygon import polygon2d
+
+
+
+
+
+
 #  GLOBAL FUNCTIONS
 def numfield(sub):
     M = WordMorphism(sub).incidence_matrix()
     b1 = max(M.eigenvalues())
     f = b1.minpoly()
-    K.<b> = NumberField(f) 
+    K = NumberField(f, 'b')
+    b, = K.gens()
     return K  
     
 
@@ -48,6 +83,7 @@ class kFace(SageObject):
             sage: F
             +[(0, 0, 0), (1, 2)]
         """
+        from sage.groups.perm_gps.permgroup_named import SymmetricGroup
         self._vector = (ZZ**len(v))(v)
         self._vector.set_immutable()
         #if not((t in ZZ) and 1 <= t <= len(v)):
@@ -399,7 +435,8 @@ class geosub(SageObject):
         M = self._sigma.incidence_matrix()
         b1 = max(M.eigenvalues())
         f = b1.minpoly()
-        K.<b> = NumberField(f)
+        K = NumberField(f, 'b')
+        b, = K.gens()
         #K.<b> = NumberField(M.characteristic_polynomial())
         #self._matrix() = M
         
@@ -494,7 +531,8 @@ class geosubNew(SageObject):
         M = self._sigma.incidence_matrix()
         b1 = max(M.eigenvalues())
         f = b1.minpoly()
-        K.<b> = NumberField(f)
+        K = NumberField(f, 'b')
+        b, = K.gens()
         #K.<b> = NumberField(M.characteristic_polynomial())
         #self._matrix() = M
         
