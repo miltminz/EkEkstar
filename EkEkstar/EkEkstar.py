@@ -27,7 +27,7 @@ EXAMPLES::
 
     sage: from EkEkstar import GeoSub, kPatch, kFace
     sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-    sage: geosub = GeoSub(sub,2,1,1)
+    sage: geosub = GeoSub(sub,2, 'prefix',1)
     sage: P = kPatch([kFace((0,0,0),(1,2),d=1),
     ....:             kFace((0,0,1),(1,3),d=1),
     ....:             kFace((0,1,0),(2,1),d=1),
@@ -258,14 +258,14 @@ class kFace(SageObject):
 
             sage: from EkEkstar import kFace, GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: geosub = GeoSub(sub,2,1,1)
+            sage: geosub = GeoSub(sub,2, 'prefix',1)
             sage: f = kFace((0,0,0),(1,2),d=1)
             sage: _ = f._plot(geosub)
 
         ::
 
             sage: sub = {1:[1,2,3,3,3,3], 2:[1,3], 3:[1]}
-            sage: geosub = GeoSub(sub,2,1,1)
+            sage: geosub = GeoSub(sub,2, 'prefix',1)
             sage: f = kFace((0,0,0),(1,2),d=1)
             sage: _ = f._plot(geosub)
         """
@@ -528,7 +528,7 @@ class kPatch(SageObject):
 
             sage: from EkEkstar import kFace, kPatch, GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: geosub = GeoSub(sub,2,1,1)
+            sage: geosub = GeoSub(sub,2, 'prefix',1)
             sage: P = kPatch([kFace((0,0,0),(1,2),d=1),
             ....:             kFace((0,0,1),(1,3),d=1),
             ....:             kFace((0,1,0),(2,1),d=1),
@@ -571,6 +571,7 @@ def ps_automaton(sub, presuf):
 
     EXAMPLES::
 
+        sage: from EkEkstar.EkEkstar import ps_automaton
         sage: m = {2:[2,1,1], 1:[2,1]}
         sage: ps_automaton(m, "prefix")
         {1: [(2, []), (1, [2])], 2: [(2, []), (1, [2]), (1, [2, 1])]}
@@ -608,6 +609,7 @@ def ps_automaton_inverted(sub, presuf):
 
     EXAMPLES::
 
+        sage: from EkEkstar.EkEkstar import ps_automaton_inverted
         sage: m = {2:[2,1,1], 1:[2,1]}
         sage: ps_automaton_inverted(m, "prefix")
         {1: [(1, [2]), (2, [2]), (2, [2, 1])], 2: [(1, []), (2, [])]}
@@ -642,21 +644,24 @@ class GeoSub(SageObject):
 
     - ``sigma`` -- dict, substitution
     - ``k`` -- integer
-    - ``presuf`` -- string, ``"prefix"`` or ``"suffix"``
-    - ``dual`` -- integer, 0 or 1
+    - ``presuf`` -- string (default: ``"prefix"``), ``"prefix"`` or ``"suffix"`` 
+    - ``dual`` -- integer (default: ``0``), 0 or 1
 
     EXAMPLES::
 
         sage: from EkEkstar import GeoSub
         sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-        sage: E = GeoSub(sub, 2, 1, 0)
+        sage: E = GeoSub(sub, 2)
         sage: E
         E_2(1->12, 2->13, 3->1)
     """
-    def __init__(self, sigma, k, presuf, dual):
+    def __init__(self, sigma, k, presuf='prefix', dual=0):
         self._sigma_dict = sigma
         self._sigma = WordMorphism(sigma)
         self._k = k
+        if not presuf in ['prefix', 'suffix']:
+            raise ValueError('Input presuf(={}) should be "prefix" or'
+                    ' "suffix"'.format(presuf))
         self._presuf = presuf
         self._dual = dual
 
@@ -667,7 +672,7 @@ class GeoSub(SageObject):
 
             sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: E = GeoSub(sub,2,1,0)
+            sage: E = GeoSub(sub,2)
             sage: E.field()
             Number Field in b with defining polynomial x^3 - x^2 - x - 1
         """
@@ -683,7 +688,7 @@ class GeoSub(SageObject):
 
             sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: E = GeoSub(sub,2,1,0)
+            sage: E = GeoSub(sub,2)
             sage: E.gen()
             b^2 - b - 1
         """
@@ -699,7 +704,7 @@ class GeoSub(SageObject):
 
             sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: E = GeoSub(sub,2,1,0)
+            sage: E = GeoSub(sub,2)
             sage: E.dominant_left_eigenvector()
             (1, b - 1, b^2 - b - 1)
         """
@@ -712,7 +717,7 @@ class GeoSub(SageObject):
             
             sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: E = GeoSub(sub,2,1,0)
+            sage: E = GeoSub(sub,2)
             sage: E.dominant_right_eigenvector()
             (1, b^2 - b - 1, -b^2 + 2*b)
         """
@@ -725,7 +730,7 @@ class GeoSub(SageObject):
             
             sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: E = GeoSub(sub,2,1,0)
+            sage: E = GeoSub(sub,2)
             sage: E.complex_embeddings()
             [-0.419643377607081 - 0.606290729207199*I,
              -0.419643377607081 + 0.606290729207199*I,
@@ -739,7 +744,7 @@ class GeoSub(SageObject):
             
             sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: E = GeoSub(sub,2,1,0)
+            sage: E = GeoSub(sub,2)
             sage: E.contracting_eigenvalues_indices()
             [0, 1]
         """
@@ -752,7 +757,7 @@ class GeoSub(SageObject):
             
             sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: E = GeoSub(sub,2,1,0)
+            sage: E = GeoSub(sub,2)
             sage: E.dilating_eigenvalues_indices()
             [2]
         """
@@ -766,7 +771,7 @@ class GeoSub(SageObject):
             
             sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: E = GeoSub(sub,2,1,0)
+            sage: E = GeoSub(sub,2)
             sage: E.base_iter()
             {(1, 2): [[(0, 0, 0), (1,)],
             [(1, 0, 0), (2,)],
@@ -813,7 +818,7 @@ class GeoSub(SageObject):
 
             sage: from EkEkstar import GeoSub, kPatch, kFace
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: geosub = GeoSub(sub,2,1,1)
+            sage: geosub = GeoSub(sub,2, 'prefix',1)
             sage: P = kPatch([kFace((0,0,0),(1,2),d=1),
             ....:             kFace((0,0,1),(1,3),d=1),
             ....:             kFace((0,1,0),(2,1),d=1),
@@ -842,7 +847,7 @@ class GeoSub(SageObject):
 
             sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: E = GeoSub(sub,2,1,0)
+            sage: E = GeoSub(sub,2)
             sage: E.matrix()
             [1 1 1]
             [1 0 0]
@@ -868,7 +873,7 @@ class GeoSub(SageObject):
             
             sage: from EkEkstar import GeoSub, kFace
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: E = GeoSub(sub,2,1,0)
+            sage: E = GeoSub(sub,2)
 
         The available face type are::
 
@@ -901,10 +906,10 @@ class GeoSub(SageObject):
         t = face.type()
         D = self._dual
         if D == 1:
-            return {kFace(x_new + (-1)**(self._dual)*vv, tt, d=D):(-1)**(sum(t)+sum(tt))*face.sign()
+            return {kFace(x_new - vv, tt, d=D):(-1)**(sum(t)+sum(tt))*face.sign()
                     for (vv, tt) in self.base_iter()[t] if len(tt) == self._k}
         else:
-            return {kFace(x_new + (-1)**(self._dual)*vv, tt, d=D):face.sign()
+            return {kFace(x_new + vv, tt, d=D):face.sign()
                     for (vv, tt) in self.base_iter()[t] if len(tt) == self._k}
                 
     def __repr__(self):
@@ -913,9 +918,9 @@ class GeoSub(SageObject):
             
             sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: GeoSub(sub, 2, 1, 0)
+            sage: GeoSub(sub, 2,  'prefix', 0)
             E_2(1->12, 2->13, 3->1)
-            sage: GeoSub(sub, 2, 1, 1)
+            sage: GeoSub(sub, 2,  'prefix', 1)
             E*_2(1->12, 2->13, 3->1)
         """
         if self._dual == 0: 
