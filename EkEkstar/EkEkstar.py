@@ -554,30 +554,76 @@ class kPatch(SageObject):
      
              
 
-def psauto(sub, ps):
+def ps_automaton(sub, presuf):
+    r"""
+    Return the prefix or suffix automaton
+
+    (related to the prefix-suffix automaton).
+
+    INPUT:
+
+    - ``sub`` -- dict, 1 dimensional substitution
+    - ``presuf`` -- string, ``"prefix"`` or ``"suffix"``
+
+    OUTPUT:
+
+        dict
+
+    EXAMPLES::
+
+        sage: m = {2:[2,1,1], 1:[2,1]}
+        sage: ps_automaton(m, "prefix")
+        {1: [(2, []), (1, [2])], 2: [(2, []), (1, [2]), (1, [2, 1])]}
+        sage: ps_automaton(m, 'suffix')
+        {1: [(2, [1]), (1, [])], 2: [(2, [1, 1]), (1, [1]), (1, [])]}
+
+    """
     d = {}
     v = sub.values()
     for i in range(len(v)):
         L = []
         for j in range(len(v[i])):
-            if ps == 1:
+            if presuf == "prefix":
                 L.append((v[i][j],sub[i+1][0:j]))
-            elif ps == 0:
+            elif presuf == "suffix":
                 L.append((v[i][j],sub[i+1][j+1:len(v[i])])) 
         d[i+1] = L  
     return d             
                   
 
-def invauto(sub,ps):
+def ps_automaton_inverted(sub, presuf):
+    r"""
+    Return the prefix or suffix automaton with inverted edges.
+
+    (related to the prefix-suffix automaton).
+
+    INPUT:
+
+    - ``sub`` -- dict, 1 dimensional substitution
+    - ``presuf`` -- string, ``"prefix"`` or ``"suffix"``
+
+    OUTPUT:
+
+        dict
+
+    EXAMPLES::
+
+        sage: m = {2:[2,1,1], 1:[2,1]}
+        sage: ps_automaton_inverted(m, "prefix")
+        {1: [(1, [2]), (2, [2]), (2, [2, 1])], 2: [(1, []), (2, [])]}
+        sage: ps_automaton_inverted(m, 'suffix')
+        {1: [(1, []), (2, [1]), (2, [])], 2: [(1, [1]), (2, [1, 1])]}
+
+    """
     d = {}
     k = sub.keys()
-    Gr = psauto(sub,ps)
+    Gr = ps_automaton(sub, presuf)
     for a in k:
         L = []
         for i in k:
             L += [(i,Gr[i][j][1]) for j in range(len(sub[i])) if sub[i][j] == a]
         d[a] = L    
-    return d         
+    return d
       
 
 def abelian(L, alphabet):
@@ -592,11 +638,18 @@ def abelian(L, alphabet):
 
 class GeoSub(SageObject):
     r"""
+    INPUT:
+
+    - ``sigma`` -- dict, substitution
+    - ``k`` -- integer
+    - ``presuf`` -- string, ``"prefix"`` or ``"suffix"``
+    - ``dual`` -- integer, 0 or 1
+
     EXAMPLES::
 
         sage: from EkEkstar import GeoSub
         sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-        sage: E = GeoSub(sub,2,1,0)
+        sage: E = GeoSub(sub, 2, 1, 0)
         sage: E
         E_2(1->12, 2->13, 3->1)
     """
@@ -737,9 +790,9 @@ class GeoSub(SageObject):
             bigL = []
             for y in x:
                 if self._dual == 0:
-                    bigL.append(psauto(self._sigma_dict,self._presuf)[y])
+                    bigL.append(ps_automaton(self._sigma_dict,self._presuf)[y])
                 else:
-                    bigL.append(invauto(self._sigma_dict,self._presuf)[y])
+                    bigL.append(ps_automaton_inverted(self._sigma_dict,self._presuf)[y])
                 Lpro = list(product(*bigL))
                 for el in Lpro:
                     z = []
