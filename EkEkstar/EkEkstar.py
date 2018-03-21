@@ -21,17 +21,15 @@ AUTHORS:
 
     - Allow the user to choose the colors of faces
 
-    - input dual should be a bool True or False not 0 or 1
-
 EXAMPLES::
 
     sage: from EkEkstar import GeoSub, kPatch, kFace
     sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-    sage: geosub = GeoSub(sub,2,1,1)
-    sage: P = kPatch([kFace((0,0,0),(1,2),d=1),
-    ....:             kFace((0,0,1),(1,3),d=1),
-    ....:             kFace((0,1,0),(2,1),d=1),
-    ....:             kFace((0,0,0),(3,1),d=1)])
+    sage: geosub = GeoSub(sub,2, presuf='prefix', dual=True)
+    sage: P = kPatch([kFace((0,0,0),(1,2),dual=True),
+    ....:             kFace((0,0,1),(1,3),dual=True),
+    ....:             kFace((0,1,0),(2,1),dual=True),
+    ....:             kFace((0,0,0),(3,1),dual=True)])
     sage: Q = geosub(P, 6)
     sage: Q
     Patch of 47 faces
@@ -65,6 +63,14 @@ from sage.plot.line import line
 ##########
 class kFace(SageObject):
     r"""
+
+    INPUT:
+
+    - ``v`` -- vector
+    - ``t`` -- tuple, type
+    - ``dual`` -- bool (default:``False``)
+    - ``color`` -- string (default:``None``)
+
     EXAMPLES:
 
     Face based at (0,0,0) of type (1,2)::
@@ -82,10 +88,10 @@ class kFace(SageObject):
         
     Dual face based at (0,0,0,0) of type (1) with multiplicity -3::
         
-        sage: kFace((0,0,0,0),(1),d=1)
+        sage: kFace((0,0,0,0),(1), dual=True)
         [(0, 0, 0, 0), 1]*
     """
-    def __init__(self, v, t, d=0, color=None):
+    def __init__(self, v, t, dual=False, color=None):
         r"""
         EXAMPLES::
 
@@ -104,7 +110,7 @@ class kFace(SageObject):
         else:
             self._type = t
         
-        self._dual = d
+        self._dual = dual
 
         self._color = color
         
@@ -116,7 +122,7 @@ class kFace(SageObject):
     def type(self):
         return self._type
 
-    def dual(self):
+    def is_dual(self):
         return self._dual
 
     def color(self, color=None):
@@ -220,21 +226,21 @@ class kFace(SageObject):
 
         Dual face::
 
-            sage: kFace((0,0,0), (1,2,3), d=1)
+            sage: kFace((0,0,0), (1,2,3), dual=True)
             [(0, 0, 0), (1, 2, 3)]*
         """
-        dual = '*' if self.dual() == 1 else ''
-        return "[{}, {}]{}".format(self.vector(), self.type(), dual)
+        d = '*' if self.is_dual() else ''
+        return "[{}, {}]{}".format(self.vector(), self.type(), d)
 
     def __eq__(self, other):
         return (isinstance(other, kFace) and
                 self.vector() == other.vector() and
                 self.type() == other.type() and 
-                self.dual() == other.dual())
+                self.is_dual() == other.is_dual())
 
     @cached_method
     def __hash__(self):
-        return hash((self.vector(), self.type(), self.dual()))
+        return hash((self.vector(), self.type(), self.is_dual()))
 
     def __add__(self, other):
         r"""
@@ -258,15 +264,15 @@ class kFace(SageObject):
 
             sage: from EkEkstar import kFace, GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: geosub = GeoSub(sub,2,1,1)
-            sage: f = kFace((0,0,0),(1,2),d=1)
+            sage: geosub = GeoSub(sub,2, dual=True)
+            sage: f = kFace((0,0,0),(1,2), dual=True)
             sage: _ = f._plot(geosub)
 
         ::
 
             sage: sub = {1:[1,2,3,3,3,3], 2:[1,3], 3:[1]}
-            sage: geosub = GeoSub(sub,2,1,1)
-            sage: f = kFace((0,0,0),(1,2),d=1)
+            sage: geosub = GeoSub(sub,2, dual=True)
+            sage: f = kFace((0,0,0),(1,2), dual=True)
             sage: _ = f._plot(geosub)
         """
         v = self.vector()
@@ -279,14 +285,14 @@ class kFace(SageObject):
                 
         num = geosub._sigma_dict.keys()
         
-        if self._dual == 1:
+        if self.is_dual():
             h = list(set(num)-set(t))
             B = b
             vec = geosub.dominant_left_eigenvector()
             emb = geosub.contracting_eigenvalues_indices()
         else:
             h = list(t)
-            B = b**(-1) 
+            B = b**(-1)  # TODO: this seems useless (why?)
             vec = -geosub.dominant_left_eigenvector() 
             emb = geosub.dilating_eigenvalues_indices() 
         
@@ -339,10 +345,10 @@ class kPatch(SageObject):
     EXAMPLES::
 
         sage: from EkEkstar import kPatch, kFace
-        sage: P = kPatch([kFace((0,0,0),(1,2),d=1),
-        ....:             kFace((0,0,1),(1,3),d=1),
-        ....:             kFace((0,1,0),(2,1),d=1),
-        ....:             kFace((0,0,0),(3,1),d=1)])
+        sage: P = kPatch([kFace((0,0,0),(1,2),dual=True),
+        ....:             kFace((0,0,1),(1,3),dual=True),
+        ....:             kFace((0,1,0),(2,1),dual=True),
+        ....:             kFace((0,0,0),(3,1),dual=True)])
         sage: P
         Patch: 1[(0, 0, 0), (1, 2)]* + 1[(0, 0, 1), (1, 3)]* + -1[(0, 1, 0), (1, 2)]* + -1[(0, 0, 0), (1, 3)]*
     """
@@ -369,11 +375,11 @@ class kPatch(SageObject):
         self._faces = Counter()
         if isinstance(faces, list):
             for f in faces:
-                canonical = kFace(f.vector(), f.sorted_type(), d=f.dual(), color=f.color())
+                canonical = kFace(f.vector(), f.sorted_type(), dual=f.is_dual(), color=f.color())
                 self._faces[canonical] += f.sign()
         else:
             for (f,m) in faces.items():
-                canonical = kFace(f.vector(), f.sorted_type(), d=f.dual(), color=f.color())
+                canonical = kFace(f.vector(), f.sorted_type(), dual=f.is_dual(), color=f.color())
                 self._faces[canonical] += m*f.sign()
 
         # Remove faces with multiplicty zero from the formal sum
@@ -422,11 +428,11 @@ class kPatch(SageObject):
 
         ::
 
-            sage: P = kPatch([kFace((0,0,0),(1,2),d=1),
-            ....:             kFace((0,0,1),(1,3),d=1),
-            ....:             kFace((0,1,0),(2,1),d=1)])
-            sage: Q = kPatch([kFace((0,1,0),(2,1),d=1),
-            ....:             kFace((0,0,0),(3,1),d=1)])
+            sage: P = kPatch([kFace((0,0,0),(1,2),dual=True),
+            ....:             kFace((0,0,1),(1,3),dual=True),
+            ....:             kFace((0,1,0),(2,1),dual=True)])
+            sage: Q = kPatch([kFace((0,1,0),(2,1),dual=True),
+            ....:             kFace((0,0,0),(3,1),dual=True)])
             sage: P + Q
             Patch: 1[(0, 0, 0), (1, 2)]* + -1[(0, 0, 0), (1, 3)]* + 1[(0, 0, 1), (1, 3)]* + -2[(0, 1, 0), (1, 2)]*
         """
@@ -442,10 +448,10 @@ class kPatch(SageObject):
         EXAMPLES::
 
             sage: from EkEkstar import kFace, kPatch
-            sage: P = kPatch([kFace((0,0,0),(1,2),d=1),
-            ....:             kFace((0,0,1),(1,3),d=1),
-            ....:             kFace((0,1,0),(2,1),d=1),
-            ....:             kFace((0,0,0),(3,1),d=1)])
+            sage: P = kPatch([kFace((0,0,0),(1,2),dual=True),
+            ....:             kFace((0,0,1),(1,3),dual=True),
+            ....:             kFace((0,1,0),(2,1),dual=True),
+            ....:             kFace((0,0,0),(3,1),dual=True)])
             sage: P.dimension()
             3
         """
@@ -456,19 +462,19 @@ class kPatch(SageObject):
         EXAMPLES::
 
             sage: from EkEkstar import kFace, kPatch
-            sage: P = kPatch([kFace((0,0,0),(1,2),d=1),
-            ....:             kFace((0,0,1),(1,3),d=1),
-            ....:             kFace((0,1,0),(2,1),d=1),
-            ....:             kFace((0,0,0),(3,1),d=1)])
+            sage: P = kPatch([kFace((0,0,0),(1,2),dual=True),
+            ....:             kFace((0,0,1),(1,3),dual=True),
+            ....:             kFace((0,1,0),(2,1),dual=True),
+            ....:             kFace((0,0,0),(3,1),dual=True)])
             sage: P
             Patch: 1[(0, 0, 0), (1, 2)]* + 1[(0, 0, 1), (1, 3)]* + -1[(0, 1, 0), (1, 2)]* + -1[(0, 0, 0), (1, 3)]*
 
         With multiplicity::
 
-            sage: P = kPatch({kFace((0,0,0),(1,2),d=1):11,
-            ....:             kFace((0,0,1),(1,3),d=1):22,
-            ....:             kFace((0,1,0),(2,1),d=1):33,
-            ....:             kFace((0,0,0),(3,1),d=1):-44})
+            sage: P = kPatch({kFace((0,0,0),(1,2),dual=True):11,
+            ....:             kFace((0,0,1),(1,3),dual=True):22,
+            ....:             kFace((0,1,0),(2,1),dual=True):33,
+            ....:             kFace((0,0,0),(3,1),dual=True):-44})
             sage: P
             Patch: 11[(0, 0, 0), (1, 2)]* + 44[(0, 0, 0), (1, 3)]* + 22[(0, 0, 1), (1, 3)]* + -33[(0, 1, 0), (1, 2)]*
 
@@ -494,10 +500,10 @@ class kPatch(SageObject):
         EXAMPLES::
 
             sage: from EkEkstar import kFace, kPatch
-            sage: P = kPatch([kFace((0,0,0),(1,2),d=1),
-            ....:             kFace((0,0,1),(1,3),d=1)])
-            sage: f = kFace((0,1,0),(2,1),d=1)
-            sage: g = kFace((0,0,0),(3,1),d=1)
+            sage: P = kPatch([kFace((0,0,0),(1,2),dual=True),
+            ....:             kFace((0,0,1),(1,3),dual=True)])
+            sage: f = kFace((0,1,0),(2,1),dual=True)
+            sage: g = kFace((0,0,0),(3,1),dual=True)
 
         A patch union with a face::
 
@@ -528,11 +534,11 @@ class kPatch(SageObject):
 
             sage: from EkEkstar import kFace, kPatch, GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: geosub = GeoSub(sub,2,1,1)
-            sage: P = kPatch([kFace((0,0,0),(1,2),d=1),
-            ....:             kFace((0,0,1),(1,3),d=1),
-            ....:             kFace((0,1,0),(2,1),d=1),
-            ....:             kFace((0,0,0),(3,1),d=1)])
+            sage: geosub = GeoSub(sub,2, dual=True)
+            sage: P = kPatch([kFace((0,0,0),(1,2),dual=True),
+            ....:             kFace((0,0,1),(1,3),dual=True),
+            ....:             kFace((0,1,0),(2,1),dual=True),
+            ....:             kFace((0,0,0),(3,1),dual=True)])
             sage: _ = P.plot(geosub)
         """
         G = Graphics()
@@ -554,30 +560,78 @@ class kPatch(SageObject):
      
              
 
-def psauto(sub, ps):
+def ps_automaton(sub, presuf):
+    r"""
+    Return the prefix or suffix automaton
+
+    (related to the prefix-suffix automaton).
+
+    INPUT:
+
+    - ``sub`` -- dict, 1 dimensional substitution
+    - ``presuf`` -- string, ``"prefix"`` or ``"suffix"``
+
+    OUTPUT:
+
+        dict
+
+    EXAMPLES::
+
+        sage: from EkEkstar.EkEkstar import ps_automaton
+        sage: m = {2:[2,1,1], 1:[2,1]}
+        sage: ps_automaton(m, "prefix")
+        {1: [(2, []), (1, [2])], 2: [(2, []), (1, [2]), (1, [2, 1])]}
+        sage: ps_automaton(m, 'suffix')
+        {1: [(2, [1]), (1, [])], 2: [(2, [1, 1]), (1, [1]), (1, [])]}
+
+    """
     d = {}
     v = sub.values()
     for i in range(len(v)):
         L = []
         for j in range(len(v[i])):
-            if ps == 1:
+            if presuf == "prefix":
                 L.append((v[i][j],sub[i+1][0:j]))
-            elif ps == 0:
+            elif presuf == "suffix":
                 L.append((v[i][j],sub[i+1][j+1:len(v[i])])) 
         d[i+1] = L  
     return d             
                   
 
-def invauto(sub,ps):
+def ps_automaton_inverted(sub, presuf):
+    r"""
+    Return the prefix or suffix automaton with inverted edges.
+
+    (related to the prefix-suffix automaton).
+
+    INPUT:
+
+    - ``sub`` -- dict, 1 dimensional substitution
+    - ``presuf`` -- string, ``"prefix"`` or ``"suffix"``
+
+    OUTPUT:
+
+        dict
+
+    EXAMPLES::
+
+        sage: from EkEkstar.EkEkstar import ps_automaton_inverted
+        sage: m = {2:[2,1,1], 1:[2,1]}
+        sage: ps_automaton_inverted(m, "prefix")
+        {1: [(1, [2]), (2, [2]), (2, [2, 1])], 2: [(1, []), (2, [])]}
+        sage: ps_automaton_inverted(m, 'suffix')
+        {1: [(1, []), (2, [1]), (2, [])], 2: [(1, [1]), (2, [1, 1])]}
+
+    """
     d = {}
     k = sub.keys()
-    Gr = psauto(sub,ps)
+    Gr = ps_automaton(sub, presuf)
     for a in k:
         L = []
         for i in k:
             L += [(i,Gr[i][j][1]) for j in range(len(sub[i])) if sub[i][j] == a]
         d[a] = L    
-    return d         
+    return d
       
 
 def abelian(L, alphabet):
@@ -592,20 +646,33 @@ def abelian(L, alphabet):
 
 class GeoSub(SageObject):
     r"""
+    INPUT:
+
+    - ``sigma`` -- dict, substitution
+    - ``k`` -- integer
+    - ``presuf`` -- string (default: ``"prefix"``), ``"prefix"`` or ``"suffix"`` 
+    - ``dual`` -- bool (default: ``False``)
+
     EXAMPLES::
 
         sage: from EkEkstar import GeoSub
         sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-        sage: E = GeoSub(sub,2,1,0)
+        sage: E = GeoSub(sub, 2)
         sage: E
         E_2(1->12, 2->13, 3->1)
     """
-    def __init__(self, sigma, k, presuf, dual):
+    def __init__(self, sigma, k, presuf='prefix', dual=False):
         self._sigma_dict = sigma
         self._sigma = WordMorphism(sigma)
         self._k = k
+        if not presuf in ['prefix', 'suffix']:
+            raise ValueError('Input presuf(={}) should be "prefix" or'
+                    ' "suffix"'.format(presuf))
         self._presuf = presuf
         self._dual = dual
+
+    def is_dual(self):
+        return self._dual
 
     @cached_method
     def field(self):
@@ -614,12 +681,12 @@ class GeoSub(SageObject):
 
             sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: E = GeoSub(sub,2,1,0)
+            sage: E = GeoSub(sub,2)
             sage: E.field()
             Number Field in b with defining polynomial x^3 - x^2 - x - 1
         """
         M = self._sigma.incidence_matrix()
-        b1 = max(M.eigenvalues())
+        b1 = max(M.eigenvalues(), key=abs)
         f = b1.minpoly()
         K = NumberField(f, 'b')
         return K
@@ -630,12 +697,12 @@ class GeoSub(SageObject):
 
             sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: E = GeoSub(sub,2,1,0)
+            sage: E = GeoSub(sub,2)
             sage: E.gen()
             b^2 - b - 1
         """
         b = self.field().gen()
-        if self._dual == 1:
+        if self.is_dual():
             return b
         else:
             return b**-1
@@ -646,7 +713,7 @@ class GeoSub(SageObject):
 
             sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: E = GeoSub(sub,2,1,0)
+            sage: E = GeoSub(sub,2)
             sage: E.dominant_left_eigenvector()
             (1, b - 1, b^2 - b - 1)
         """
@@ -659,7 +726,7 @@ class GeoSub(SageObject):
             
             sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: E = GeoSub(sub,2,1,0)
+            sage: E = GeoSub(sub,2)
             sage: E.dominant_right_eigenvector()
             (1, b^2 - b - 1, -b^2 + 2*b)
         """
@@ -672,7 +739,7 @@ class GeoSub(SageObject):
             
             sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: E = GeoSub(sub,2,1,0)
+            sage: E = GeoSub(sub,2)
             sage: E.complex_embeddings()
             [-0.419643377607081 - 0.606290729207199*I,
              -0.419643377607081 + 0.606290729207199*I,
@@ -686,7 +753,7 @@ class GeoSub(SageObject):
             
             sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: E = GeoSub(sub,2,1,0)
+            sage: E = GeoSub(sub,2)
             sage: E.contracting_eigenvalues_indices()
             [0, 1]
         """
@@ -699,12 +766,45 @@ class GeoSub(SageObject):
             
             sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: E = GeoSub(sub,2,1,0)
+            sage: E = GeoSub(sub,2)
             sage: E.dilating_eigenvalues_indices()
             [2]
         """
         L = self.complex_embeddings()
         return [L.index(x) for x in L if abs(x)>1]
+
+    def minkowski_embedding_with_left_eigenvector(self):
+        r"""
+        EXAMPLES::
+
+            sage: from EkEkstar import GeoSub
+            sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
+            sage: E = GeoSub(sub,2)
+            sage: E.minkowski_embedding_with_left_eigenvector()
+            [ -1.00000000000000 -0.839286755214161 -0.543689012692076]
+            [ -1.00000000000000   1.41964337760708  0.771844506346038]
+            [ 0.000000000000000 -0.606290729207199   1.11514250803994]
+
+        ::
+
+            sage: E = GeoSub(sub, 2, dual=True)
+            sage: E.minkowski_embedding_with_left_eigenvector()
+            [  1.00000000000000  0.839286755214161  0.543689012692076]
+            [  1.00000000000000  -1.41964337760708 -0.771844506346038]
+            [ 0.000000000000000  0.606290729207199  -1.11514250803994]
+
+        """
+        K = self.field()
+        if self.is_dual():
+            vb = self.dominant_left_eigenvector()
+        else:
+            vb = -self.dominant_left_eigenvector() 
+        return Minkowski_embedding_without_sqrt2(K, vb)
+
+    def contracting_rauzy_projection(self):
+        raise NotImplementedError
+    def expanding_rauzy_projection(self):
+        raise NotImplementedError
 
     @cached_method
     def base_iter(self):
@@ -713,7 +813,7 @@ class GeoSub(SageObject):
             
             sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: E = GeoSub(sub,2,1,0)
+            sage: E = GeoSub(sub,2)
             sage: E.base_iter()
             {(1, 2): [[(0, 0, 0), (1,)],
             [(1, 0, 0), (2,)],
@@ -736,10 +836,10 @@ class GeoSub(SageObject):
             X[x] = []
             bigL = []
             for y in x:
-                if self._dual == 0:
-                    bigL.append(psauto(self._sigma_dict,self._presuf)[y])
+                if self.is_dual():
+                    bigL.append(ps_automaton_inverted(self._sigma_dict,self._presuf)[y])
                 else:
-                    bigL.append(invauto(self._sigma_dict,self._presuf)[y])
+                    bigL.append(ps_automaton(self._sigma_dict,self._presuf)[y])
                 Lpro = list(product(*bigL))
                 for el in Lpro:
                     z = []
@@ -747,11 +847,11 @@ class GeoSub(SageObject):
                     for i in range(len(el)):
                         z += el[i][1]
                         w.append(el[i][0])
-                    if self._dual == 0:
-                        X[x].append([abelian(z, S),tuple(w)])
-                    else:
+                    if self.is_dual():
                         M = self._sigma.incidence_matrix()
                         X[x].append([-M.inverse()*abelian(z, S),tuple(w)])
+                    else:
+                        X[x].append([abelian(z, S),tuple(w)])
         return X
            
     def __call__(self, patch, iterations=1):
@@ -760,11 +860,11 @@ class GeoSub(SageObject):
 
             sage: from EkEkstar import GeoSub, kPatch, kFace
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: geosub = GeoSub(sub,2,1,1)
-            sage: P = kPatch([kFace((0,0,0),(1,2),d=1),
-            ....:             kFace((0,0,1),(1,3),d=1),
-            ....:             kFace((0,1,0),(2,1),d=1),
-            ....:             kFace((0,0,0),(3,1),d=1)])
+            sage: geosub = GeoSub(sub,2, 'prefix',1)
+            sage: P = kPatch([kFace((0,0,0),(1,2),dual=True),
+            ....:             kFace((0,0,1),(1,3),dual=True),
+            ....:             kFace((0,1,0),(2,1),dual=True),
+            ....:             kFace((0,0,0),(3,1),dual=True)])
             sage: Q = geosub(P, 6)
             sage: Q
             Patch of 47 faces
@@ -789,16 +889,16 @@ class GeoSub(SageObject):
 
             sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: E = GeoSub(sub,2,1,0)
+            sage: E = GeoSub(sub,2)
             sage: E.matrix()
             [1 1 1]
             [1 0 0]
             [0 1 0]
         """
-        if self._dual == 0:
-            return self._sigma.incidence_matrix()
-        else:
+        if self.is_dual():
             return self._sigma.incidence_matrix().inverse()
+        else:
+            return self._sigma.incidence_matrix()
         
     def _call_on_face(self, face, color=None):
         r"""
@@ -815,7 +915,7 @@ class GeoSub(SageObject):
             
             sage: from EkEkstar import GeoSub, kFace
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: E = GeoSub(sub,2,1,0)
+            sage: E = GeoSub(sub,2)
 
         The available face type are::
 
@@ -846,12 +946,11 @@ class GeoSub(SageObject):
         """
         x_new = self.matrix() * face.vector()
         t = face.type()
-        D = self._dual
-        if D == 1:
-            return {kFace(x_new + (-1)**(self._dual)*vv, tt, d=D):(-1)**(sum(t)+sum(tt))*face.sign()
+        if self.is_dual():
+            return {kFace(x_new - vv, tt, dual=self.is_dual()):(-1)**(sum(t)+sum(tt))*face.sign()
                     for (vv, tt) in self.base_iter()[t] if len(tt) == self._k}
         else:
-            return {kFace(x_new + (-1)**(self._dual)*vv, tt, d=D):face.sign()
+            return {kFace(x_new + vv, tt, dual=self.is_dual()):face.sign()
                     for (vv, tt) in self.base_iter()[t] if len(tt) == self._k}
                 
     def __repr__(self):
@@ -860,15 +959,81 @@ class GeoSub(SageObject):
             
             sage: from EkEkstar import GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
-            sage: GeoSub(sub, 2, 1, 0)
+            sage: GeoSub(sub, 2)
             E_2(1->12, 2->13, 3->1)
-            sage: GeoSub(sub, 2, 1, 1)
+            sage: GeoSub(sub, 2, dual=True)
             E*_2(1->12, 2->13, 3->1)
         """
-        if self._dual == 0: 
-            return "E_%s(%s)" % (self._k,str(self._sigma))
-        else: 
+        if self.is_dual(): 
             return "E*_%s(%s)" % (self._k,str(self._sigma))
+        else: 
+            return "E_%s(%s)" % (self._k,str(self._sigma))
         
 
+def Minkowski_embedding_without_sqrt2(self, B=None, prec=None):
+    r"""
+    This method is a modification of the ``Minkowski_embedding`` method of
+    NumberField in sage (without sqrt2).
+
+    EXAMPLES::
+
+        sage: from EkEkstar.EkEkstar import Minkowski_embedding_without_sqrt2
+        sage: F.<alpha> = NumberField(x^3+2)
+        sage: F.minkowski_embedding()
+        [ 1.00000000000000 -1.25992104989487  1.58740105196820]
+        [ 1.41421356237309 0.890898718140339 -1.12246204830937]
+        [0.000000000000000  1.54308184421705  1.94416129723967]
+        sage: Minkowski_embedding_without_sqrt2(F)
+        [  1.00000000000000  -1.25992104989487   1.58740105196820]
+        [  1.00000000000000  0.629960524947437 -0.793700525984099]
+        [ 0.000000000000000   1.09112363597172   1.37472963699860]
+        sage: Minkowski_embedding_without_sqrt2(F, [1, alpha+2, alpha^2-alpha])
+        [ 1.00000000000000 0.740078950105127  2.84732210186307]
+        [ 1.00000000000000  2.62996052494744 -1.42366105093154]
+        [0.000000000000000  1.09112363597172 0.283606001026881]
+        sage: Minkowski_embedding_without_sqrt2(F) * (alpha + 2).vector().column()
+        [0.740078950105127]
+        [ 2.62996052494744]
+        [ 1.09112363597172]
+
+    Tribo::
+
+        sage: F.<beta> = NumberField(x^3-x^2-x-1)
+        sage: F.minkowski_embedding()
+        [  1.00000000000000   1.83928675521416   3.38297576790624]
+        [  1.41421356237309 -0.593465355971987 -0.270804762516626]
+        [ 0.000000000000000  0.857424571985895 -0.719625086862932]
+        sage: Minkowski_embedding_without_sqrt2(F)
+        [  1.00000000000000   1.83928675521416   3.38297576790624]
+        [  1.00000000000000 -0.419643377607080 -0.191487883953119]
+        [ 0.000000000000000  0.606290729207199 -0.508851778832738]
+
+    Comprendre le problème de norme::
+
+        sage: norme = lambda v:abs(v[0]) * (v[1]^2 + v[2]^2)
+        sage: F.<beta> = NumberField(x^3-x^2-x-1)
+        sage: M = Minkowski_embedding_without_sqrt2(F)
+        sage: norme(M*vector((1,0,0)))
+        1.00000000000000
+        sage: norme(M*vector((1,0,-1)))
+        4.00000000000000
+
+    """
+    r,s = self.signature()
+    places = self.places(prec=prec)
+
+    if B is None:
+        B = [(self.gen(0))**i for i in range(self.degree())]
+
+    d = {}
+    for col,B_col in enumerate(B):
+        for row in range(r):
+            d[(row,col)] = places[row](B_col)
+        for i in range(s):
+            z = places[r+i](B_col)
+            d[(r+2*i,col)] = z.real()
+            d[(r+2*i+1,col)] = z.imag()
+
+    from sage.matrix.constructor import matrix
+    return matrix(d)
 
