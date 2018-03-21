@@ -292,7 +292,7 @@ class kFace(SageObject):
             emb = geosub.contracting_eigenvalues_indices()
         else:
             h = list(t)
-            B = b**(-1) 
+            B = b**(-1)  # TODO: this seems useless (why?)
             vec = -geosub.dominant_left_eigenvector() 
             emb = geosub.dilating_eigenvalues_indices() 
         
@@ -686,7 +686,7 @@ class GeoSub(SageObject):
             Number Field in b with defining polynomial x^3 - x^2 - x - 1
         """
         M = self._sigma.incidence_matrix()
-        b1 = max(M.eigenvalues())
+        b1 = max(M.eigenvalues(), key=abs)
         f = b1.minpoly()
         K = NumberField(f, 'b')
         return K
@@ -772,6 +772,39 @@ class GeoSub(SageObject):
         """
         L = self.complex_embeddings()
         return [L.index(x) for x in L if abs(x)>1]
+
+    def minkowski_embedding_with_left_eigenvector(self):
+        r"""
+        EXAMPLES::
+
+            sage: from EkEkstar import GeoSub
+            sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
+            sage: E = GeoSub(sub,2)
+            sage: E.minkowski_embedding_with_left_eigenvector()
+            [ -1.00000000000000 -0.839286755214161 -0.543689012692076]
+            [ -1.00000000000000   1.41964337760708  0.771844506346038]
+            [ 0.000000000000000 -0.606290729207199   1.11514250803994]
+
+        ::
+
+            sage: E = GeoSub(sub, 2, dual=True)
+            sage: E.minkowski_embedding_with_left_eigenvector()
+            [  1.00000000000000  0.839286755214161  0.543689012692076]
+            [  1.00000000000000  -1.41964337760708 -0.771844506346038]
+            [ 0.000000000000000  0.606290729207199  -1.11514250803994]
+
+        """
+        K = self.field()
+        if self.is_dual():
+            vb = self.dominant_left_eigenvector()
+        else:
+            vb = -self.dominant_left_eigenvector() 
+        return Minkowski_embedding_without_sqrt2(K, vb)
+
+    def contracting_rauzy_projection(self):
+        raise NotImplementedError
+    def expanding_rauzy_projection(self):
+        raise NotImplementedError
 
     @cached_method
     def base_iter(self):
@@ -937,4 +970,70 @@ class GeoSub(SageObject):
             return "E_%s(%s)" % (self._k,str(self._sigma))
         
 
+def Minkowski_embedding_without_sqrt2(self, B=None, prec=None):
+    r"""
+    This method is a modification of the ``Minkowski_embedding`` method of
+    NumberField in sage (without sqrt2).
+
+    EXAMPLES::
+
+        sage: from EkEkstar.EkEkstar import Minkowski_embedding_without_sqrt2
+        sage: F.<alpha> = NumberField(x^3+2)
+        sage: F.minkowski_embedding()
+        [ 1.00000000000000 -1.25992104989487  1.58740105196820]
+        [ 1.41421356237309 0.890898718140339 -1.12246204830937]
+        [0.000000000000000  1.54308184421705  1.94416129723967]
+        sage: Minkowski_embedding_without_sqrt2(F)
+        [  1.00000000000000  -1.25992104989487   1.58740105196820]
+        [  1.00000000000000  0.629960524947437 -0.793700525984099]
+        [ 0.000000000000000   1.09112363597172   1.37472963699860]
+        sage: Minkowski_embedding_without_sqrt2(F, [1, alpha+2, alpha^2-alpha])
+        [ 1.00000000000000 0.740078950105127  2.84732210186307]
+        [ 1.00000000000000  2.62996052494744 -1.42366105093154]
+        [0.000000000000000  1.09112363597172 0.283606001026881]
+        sage: Minkowski_embedding_without_sqrt2(F) * (alpha + 2).vector().column()
+        [0.740078950105127]
+        [ 2.62996052494744]
+        [ 1.09112363597172]
+
+    Tribo::
+
+        sage: F.<beta> = NumberField(x^3-x^2-x-1)
+        sage: F.minkowski_embedding()
+        [  1.00000000000000   1.83928675521416   3.38297576790624]
+        [  1.41421356237309 -0.593465355971987 -0.270804762516626]
+        [ 0.000000000000000  0.857424571985895 -0.719625086862932]
+        sage: Minkowski_embedding_without_sqrt2(F)
+        [  1.00000000000000   1.83928675521416   3.38297576790624]
+        [  1.00000000000000 -0.419643377607080 -0.191487883953119]
+        [ 0.000000000000000  0.606290729207199 -0.508851778832738]
+
+    Comprendre le problème de norme::
+
+        sage: norme = lambda v:abs(v[0]) * (v[1]^2 + v[2]^2)
+        sage: F.<beta> = NumberField(x^3-x^2-x-1)
+        sage: M = Minkowski_embedding_without_sqrt2(F)
+        sage: norme(M*vector((1,0,0)))
+        1.00000000000000
+        sage: norme(M*vector((1,0,-1)))
+        4.00000000000000
+
+    """
+    r,s = self.signature()
+    places = self.places(prec=prec)
+
+    if B is None:
+        B = [(self.gen(0))**i for i in range(self.degree())]
+
+    d = {}
+    for col,B_col in enumerate(B):
+        for row in range(r):
+            d[(row,col)] = places[row](B_col)
+        for i in range(s):
+            z = places[r+i](B_col)
+            d[(r+2*i,col)] = z.real()
+            d[(r+2*i+1,col)] = z.imag()
+
+    from sage.matrix.constructor import matrix
+    return matrix(d)
 
