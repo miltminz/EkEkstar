@@ -94,6 +94,14 @@ class kFace(SageObject):
         
         sage: kFace((0,0,0,0),(1), dual=True)
         [(0, 0, 0, 0), 1]*
+
+    Operations::
+
+        sage: F = kFace((0,0,0),(1,2))
+        sage: F
+        [(0, 0, 0), (1, 2)]
+        sage: -2 * F.dual()
+        Patch: -2[(0, 0, 0), (1, 2)]*
         
     Color of a face::
     
@@ -104,7 +112,6 @@ class kFace(SageObject):
         sage: F = kFace((0,0,0),(1,2),color='green')
         sage: F.color()
         RGB color (0.0, 0.5019607843137255, 0.0)
-    
         
     """
     def __init__(self, v, t, dual=False, color=None):
@@ -135,14 +142,14 @@ class kFace(SageObject):
             
         else:
             
-            sorted_types = list(itertools.combinations(range(1,self._dimension+1),len(self._type)))
+            sorted_types = list(combinations(range(1,self._dimension+1),len(self._type)))
             Col = rainbow(len(sorted_types))
             D = dict(zip(sorted_types,Col))
         
             self._color = Color(D[self.sorted_type()])
-            
-    
-    
+
+
+
     def vector(self):
         return self._vector
 
@@ -152,10 +159,10 @@ class kFace(SageObject):
     def is_dual(self):
         return self._dual
 
-    
+
     def sorted_type(self):
         return tuple(sorted(self._type))
-    
+
 
     def color(self):
         return self._color
@@ -230,6 +237,54 @@ class kFace(SageObject):
             return kPatch([self, other])
         else:
             return kPatch(other).union(self)
+
+    def __neg__(self):
+        r"""
+        EXAMPLES::
+
+            sage: from EkEkstar import kPatch
+            sage: F = kFace((0,0,0),(1,3))
+            sage: F
+            [(0, 0, 0), (1, 3)]
+            sage: -F
+            Patch: -1[(0, 0, 0), (1, 3)]
+
+        """
+        return kPatch({self:-1})
+
+    def __rmul__(self, coeff):
+        r"""
+        EXAMPLES::
+
+            sage: from EkEkstar import kPatch
+            sage: F = kFace((0,0,0),(1,3))
+            sage: F
+            [(0, 0, 0), (1, 3)]
+            sage: 4 * F
+            Patch: 4[(0, 0, 0), (1, 3)]
+            sage: -2 * F
+            Patch: -2[(0, 0, 0), (1, 3)]
+
+        """
+        return kPatch({self:coeff})
+
+    def dual(self):
+        r"""
+        Return the dual face.
+
+        EXAMPLES::
+
+            sage: from EkEkstar import kFace
+            sage: kFace((0,0,0),(1,3))
+            [(0, 0, 0), (1, 3)]
+            sage: kFace((0,0,0),(1,3)).dual()
+            [(0, 0, 0), (1, 3)]*
+            sage: kFace((0,0,0),(1,3)).dual().dual()
+            [(0, 0, 0), (1, 3)]
+
+        """
+        return kFace(self.vector(), self.type(), dual=not self.is_dual(), 
+                     color=self.color())
 
     def _plot(self, geosub, color=None):
         r"""
@@ -411,7 +466,77 @@ class kPatch(SageObject):
         for (f,m) in other._faces.items():
             C[f] += m
         return kPatch(C)
-        
+
+    def __rmul__(self, coeff):
+        r"""
+        INPUT:
+
+        - ``coeff`` -- integer
+
+        EXAMPLES::
+
+            sage: from EkEkstar import kPatch
+            sage: P = kPatch([kFace((0,0,0),(1,3))])
+            sage: P
+            Patch: 1[(0, 0, 0), (1, 3)]
+
+        ::
+
+            sage: -4 * P
+            Patch: -4[(0, 0, 0), (1, 3)]
+            sage: -1 * P
+            Patch: -1[(0, 0, 0), (1, 3)]
+            sage: 1 * P
+            Patch: 1[(0, 0, 0), (1, 3)]
+
+        Currently, it is not forbidden to use non integral coefficients::
+
+            sage: -4.3 * P
+            Patch: -4.30000000000000[(0, 0, 0), (1, 3)]
+
+        TESTS:
+
+        Right multiplication is not defined::
+
+            sage: P * 2
+            Traceback (most recent call last):
+            ...
+            TypeError: unsupported operand parent(s) for *: '<class '__main__.kPatch'>' and 'Integer Ring'
+
+        """
+        D = {f:coeff*m for (f,m) in self._faces.items()}
+        return kPatch(D)
+
+    def __neg__(self):
+        r"""
+        EXAMPLES::
+
+            sage: from EkEkstar import kPatch
+            sage: P = kPatch([kFace((0,0,0),(1,3))])
+            sage: P
+            Patch: 1[(0, 0, 0), (1, 3)]
+            sage: -P
+            Patch: -1[(0, 0, 0), (1, 3)]
+
+        """
+        D = {f:-m for (f,m) in self._faces.items()}
+        return kPatch(D)
+
+    def dual(self):
+        r"""
+        EXAMPLES::
+
+            sage: from EkEkstar import kPatch
+            sage: P = kPatch([kFace((0,1,0),(1,2)), kFace((0,0,0),(1,3))])
+            sage: P
+            Patch: 1[(0, 1, 0), (1, 2)] + 1[(0, 0, 0), (1, 3)]
+            sage: P.dual()
+            Patch: 1[(0, 1, 0), (1, 2)]* + 1[(0, 0, 0), (1, 3)]*
+
+        """
+        D = {f.dual():m for (f,m) in self._faces.items()}
+        return kPatch(D)
+
     def dimension(self):
         r"""
         EXAMPLES::
