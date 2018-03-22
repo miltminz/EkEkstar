@@ -21,6 +21,13 @@ AUTHORS:
 
     - Allow the user to choose the colors of faces
 
+    - Patch.dual() and Face.dual() should return the dual face
+
+    - Face + Face + Face returns an error
+
+    - Patch should check that all its faces are consistent (same type
+      length, dual or not, ambiant dimension)
+
 EXAMPLES::
 
     sage: from EkEkstar import GeoSub, kPatch, kFace
