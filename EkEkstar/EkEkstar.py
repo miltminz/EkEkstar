@@ -58,7 +58,7 @@ from sage.rings.all import CC
 from sage.combinat.words.morphism import WordMorphism
 from sage.combinat.permutation import Permutation
 from sage.rings.number_field.number_field import NumberField
-from sage.plot.colors import Color
+from sage.plot.colors import Color, rainbow
 from sage.plot.graphics import Graphics
 from sage.plot.polygon import polygon2d
 from sage.plot.line import line
@@ -176,11 +176,11 @@ class kFace(SageObject):
         EXAMPLES::
         
             sage: from EkEkstar import kFace
-            sage: kFace((0,0,0),(1,2,3,4,5)).sign()
+            sage: kFace((0,0,0,0,0),(1,2,3,4,5)).sign()
             1
-            sage: kFace((0,0,0),(1,2,3,4,4)).sign()
+            sage: kFace((0,0,0,0,0),(1,2,3,4,4)).sign()
             0
-            sage: kFace((0,0,0),(1,2,3,5,4)).sign()
+            sage: kFace((0,0,0,0,0),(1,2,3,5,4)).sign()
             -1
         """
         sorted_type = self.sorted_type()
@@ -197,12 +197,12 @@ class kFace(SageObject):
         EXAMPLES::
 
             sage: from EkEkstar import kFace
-            sage: kFace((0,0,0),(1,2,3,4,5))
-            [(0, 0, 0), (1, 2, 3, 4, 5)]
-            sage: kFace((0,0,0),(1,2,3,4,4))
-            [(0, 0, 0), (1, 2, 3, 4, 4)]
-            sage: kFace((0,0,0),(1,2,3,5,4))
-            [(0, 0, 0), (1, 2, 3, 5, 4)]
+            sage: kFace((0,0,0,0,0),(1,2,3,4,5))
+            [(0, 0, 0, 0, 0), (1, 2, 3, 4, 5)]
+            sage: kFace((0,0,0,0,0),(1,2,3,4,4))
+            [(0, 0, 0, 0, 0), (1, 2, 3, 4, 4)]
+            sage: kFace((0,0,0,0,0),(1,2,3,5,4))
+            [(0, 0, 0, 0, 0), (1, 2, 3, 5, 4)]
 
         Dual face::
 
@@ -242,7 +242,7 @@ class kFace(SageObject):
         r"""
         EXAMPLES::
 
-            sage: from EkEkstar import kPatch
+            sage: from EkEkstar import kFace
             sage: F = kFace((0,0,0),(1,3))
             sage: F
             [(0, 0, 0), (1, 3)]
@@ -256,7 +256,7 @@ class kFace(SageObject):
         r"""
         EXAMPLES::
 
-            sage: from EkEkstar import kPatch
+            sage: from EkEkstar import kFace
             sage: F = kFace((0,0,0),(1,3))
             sage: F
             [(0, 0, 0), (1, 3)]
@@ -480,7 +480,7 @@ class kPatch(SageObject):
 
         EXAMPLES::
 
-            sage: from EkEkstar import kPatch
+            sage: from EkEkstar import kPatch, kFace
             sage: P = kPatch([kFace((0,0,0),(1,3))])
             sage: P
             Patch: 1[(0, 0, 0), (1, 3)]
@@ -521,7 +521,7 @@ class kPatch(SageObject):
         r"""
         EXAMPLES::
 
-            sage: from EkEkstar import kPatch
+            sage: from EkEkstar import kPatch, kFace
             sage: P = kPatch([kFace((0,0,0),(1,3))])
             sage: P
             Patch: 1[(0, 0, 0), (1, 3)]
@@ -536,7 +536,7 @@ class kPatch(SageObject):
         r"""
         EXAMPLES::
 
-            sage: from EkEkstar import kPatch
+            sage: from EkEkstar import kPatch, kFace
             sage: P = kPatch([kFace((0,1,0),(1,2)), kFace((0,0,0),(1,3))])
             sage: P
             Patch: 1[(0, 1, 0), (1, 2)] + 1[(0, 0, 0), (1, 3)]
