@@ -265,6 +265,11 @@ class kFace(SageObject):
             sage: -2 * F
             Patch: -2[(0, 0, 0), (1, 3)]
 
+        Multiplication by zero gives the empty patch::
+
+            sage: 0 * F
+            Empty patch
+
         """
         return kPatch({self:coeff})
 
@@ -488,6 +493,11 @@ class kPatch(SageObject):
             Patch: -1[(0, 0, 0), (1, 3)]
             sage: 1 * P
             Patch: 1[(0, 0, 0), (1, 3)]
+
+        Multiplication by zero gives the empty patch::
+
+            sage: 0 * P
+            Empty patch
 
         Currently, it is not forbidden to use non integral coefficients::
 
@@ -972,8 +982,7 @@ class GeoSub(SageObject):
             for i in range(iterations):
                 new_faces = kPatch([])
                 for f,m in old_faces:
-                    if m != 0:
-                        new_faces += kPatch(self._call_on_face(f,m, color=f.color()))              
+                    new_faces += m * kPatch(self._call_on_face(f, color=f.color()))
                 old_faces = new_faces
             return new_faces
 
@@ -994,12 +1003,11 @@ class GeoSub(SageObject):
         else:
             return self._sigma.incidence_matrix()
         
-    def _call_on_face(self, face, m=1, color=None):
+    def _call_on_face(self, face, color=None):
         r"""
         INPUT:
 
         - ``face`` -- a face
-        - ``m`` -- multiplicity
         - ``color`` -- a color or None
 
         OUTPUT:
@@ -1042,12 +1050,11 @@ class GeoSub(SageObject):
         x_new = self.matrix() * face.vector()
         #t = face.type()
         t = face.sorted_type()
-        s = m*face.sign()
         if self.is_dual():
-            return {kFace(x_new - vv, tt, dual=self.is_dual()):(-1)**(sum(t)+sum(tt))*s
+            return {kFace(x_new - vv, tt, dual=self.is_dual()):(-1)**(sum(t)+sum(tt))*face.sign()
                     for (vv, tt) in self.base_iter()[t] if len(tt) == self._k}
         else:
-            return {kFace(x_new + vv, tt, dual=self.is_dual()):s
+            return {kFace(x_new + vv, tt, dual=self.is_dual()):face.sign()
                     for (vv, tt) in self.base_iter()[t] if len(tt) == self._k}
                 
     def __repr__(self):
