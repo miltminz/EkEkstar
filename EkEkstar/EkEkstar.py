@@ -24,6 +24,8 @@ AUTHORS:
     - Patch should check that all its faces are consistent (same type
       length, dual or not, ambiant dimension)
 
+    - Should be able to do 4 * kPatch
+
 EXAMPLES::
 
     sage: from EkEkstar import GeoSub, kPatch, kFace
