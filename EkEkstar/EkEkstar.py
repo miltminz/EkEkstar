@@ -17,14 +17,8 @@ AUTHORS:
 
     - Fix some proper ordering for the faces (problems with doctests).
 
-    - Patch.dual() and Face.dual() should return the dual face
-
-    - Face + Face + Face returns an error
-
     - Patch should check that all its faces are consistent (same type
       length, dual or not, ambiant dimension)
-
-    - Should be able to do 4 * kPatch
 
 EXAMPLES::
 
@@ -232,11 +226,25 @@ class kFace(SageObject):
             sage: kFace((0,0,0),(1,3)) + kFace((0,0,0),(1,3))
             Patch: 2[(0, 0, 0), (1, 3)]
 
+        This method allows also to add a k-face with a k-patch::
+
+            sage: from EkEkstar import kPatch
+            sage: P = kPatch([kFace((0,0,0),(1,3))])
+            sage: F = kFace((0,0,0), (2,3))
+            sage: F + P
+            Patch: 1[(0, 0, 0), (1, 3)] + 1[(0, 0, 0), (2, 3)]
+
+        Thus this works::
+
+            sage: F + F
+            Patch: 2[(0, 0, 0), (2, 3)]
+            sage: F + F + F
+            Patch: 3[(0, 0, 0), (2, 3)]
         """
         if isinstance(other, kFace):
             return kPatch([self, other])
         else:
-            return kPatch(other).union(self)
+            return kPatch([self]).union(other)
 
     def __neg__(self):
         r"""
@@ -444,18 +452,27 @@ class kPatch(SageObject):
 
             sage: from EkEkstar import kFace, kPatch
             sage: P = kPatch([kFace((0,0,0),(1,3))])
-            sage: Q = kPatch([kFace((0,0,0),(3,1))])
+            sage: Q = kPatch([kFace((0,0,0),(3,2))])
             sage: P + Q
-            Empty patch
-            sage: Q + P
-            Empty patch
-
-        ::
-
+            Patch: 1[(0, 0, 0), (1, 3)] + -1[(0, 0, 0), (2, 3)]
             sage: P + P
             Patch: 2[(0, 0, 0), (1, 3)]
 
-        ::
+        When there are cancellations::
+
+            sage: R = kPatch([kFace((0,0,0),(3,1))])
+            sage: P + R
+            Empty patch
+            sage: R + P
+            Empty patch
+
+        A k-patch plus a k-face::
+
+            sage: F = kFace((0,0,0), (2,3))
+            sage: P + F
+            Patch: 1[(0, 0, 0), (1, 3)] + 1[(0, 0, 0), (2, 3)]
+
+        Works with dual k-faces::
 
             sage: P = kPatch([kFace((0,0,0),(1,2),dual=True),
             ....:             kFace((0,0,1),(1,3),dual=True),
@@ -464,13 +481,19 @@ class kPatch(SageObject):
             ....:             kFace((0,0,0),(3,1),dual=True)])
             sage: P + Q
             Patch: 1[(0, 0, 0), (1, 2)]* + -1[(0, 0, 0), (1, 3)]* + 1[(0, 0, 1), (1, 3)]* + -2[(0, 1, 0), (1, 2)]*
+
         """
-        C = Counter()
-        for (f,m) in self._faces.items():
-            C[f] += m
-        for (f,m) in other._faces.items():
-            C[f] += m
-        return kPatch(C)
+        if isinstance(other, kFace):
+            return self + kPatch({other:1})
+        elif isinstance(other, kPatch):
+            C = Counter()
+            for (f,m) in self._faces.items():
+                C[f] += m
+            for (f,m) in other._faces.items():
+                C[f] += m
+            return kPatch(C)
+        else:
+            raise TypeError("Can not add {} with {}".format(self,other))
 
     def __rmul__(self, coeff):
         r"""
