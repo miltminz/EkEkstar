@@ -17,10 +17,6 @@ AUTHORS:
 
     - Fix some proper ordering for the faces (problems with doctests).
 
-    - Use rainbow() or something else to automatically choose colors
-
-    - Allow the user to choose the colors of faces
-
 EXAMPLES::
 
     sage: from EkEkstar import GeoSub, kPatch, kFace
@@ -80,16 +76,27 @@ class kFace(SageObject):
         sage: F
         [(0, 0, 0), (1, 2)]
         
-    Face based at (0,0,0) of type (3,1): the type is changed to (1,3) 
-    and the multiplicity of the face turns to -1::
+    Face based at (0,0,0) of type (3,1)::
 
         sage: kFace((0,0,0),(3,1))
         [(0, 0, 0), (3, 1)]
         
-    Dual face based at (0,0,0,0) of type (1) with multiplicity -3::
+    Dual face based at (0,0,0,0) of type (1)::
         
         sage: kFace((0,0,0,0),(1), dual=True)
         [(0, 0, 0, 0), 1]*
+        
+    Color of a face::
+    
+        sage: F = kFace((0,0,0),(1,2))
+        sage: F.color()
+        RGB color (1.0, 0.0, 0.0)
+
+        sage: F = kFace((0,0,0),(1,2),color='green')
+        sage: F.color()
+        RGB color (0.0, 0.5019607843137255, 0.0)
+    
+        
     """
     def __init__(self, v, t, dual=False, color=None):
         r"""
@@ -102,20 +109,31 @@ class kFace(SageObject):
         """
         self._vector = (ZZ**len(v))(v)
         self._vector.set_immutable()
-        #if not((t in ZZ) and 1 <= t <= len(v)):
-        #    raise ValueError('The type must be an integer between 1 and len(v)')
+        self._dimension = len(v)
+        
+        if not all((tt in ZZ and 1 <= tt <= len(v)) for tt in t):
+            raise ValueError('The type must be a tuple of integers between 1 and {}'.format(len(v)))
 
-        if t in ZZ:
-            self._type = t
-        else:
-            self._type = t
+        self._type = t
         
         self._dual = dual
 
         self._color = color
         
-
-
+        if color is not None:
+        
+            self._color = Color(color)
+            
+        else:
+            
+            sorted_types = list(itertools.combinations(range(1,self._dimension+1),len(self._type)))
+            Col = rainbow(len(sorted_types))
+            D = dict(zip(sorted_types,Col))
+        
+            self._color = Color(D[self.sorted_type()])
+            
+    
+    
     def vector(self):
         return self._vector
 
@@ -125,70 +143,16 @@ class kFace(SageObject):
     def is_dual(self):
         return self._dual
 
-    def color(self, color=None):
-        if color is not None:
-            self._color = Color(color)
-            return
-        if self._color is None:
-            sorted_type = self.sorted_type()
-            if sorted_type == (1,):
-                self._color = Color((1,0,0))
-            elif sorted_type == (2,):
-                self._color = Color((0,0,1))
-            elif sorted_type == (3,):
-                self._color = Color((0,1,0))
-            elif sorted_type == (4,):
-                self._color = Color('yellow')
-            elif sorted_type == (5,):
-                self._color = Color('purple')    
-            elif sorted_type == (1,2):
-                self._color = Color('red')  
-            elif sorted_type == (1,3):
-                self._color = Color('blue')   
-            elif sorted_type == (1,4):
-                self._color = Color('green')
-            elif sorted_type == (1,5):
-                self._color = Color('purple')     
-            elif sorted_type == (2,3):
-                self._color = Color('orange') 
-            elif sorted_type == (2,4):
-                self._color = Color('pink')
-            elif sorted_type == (2,5):
-                self._color = Color('brown')     
-            elif sorted_type == (3,4):
-                self._color = Color('yellow')  
-            elif sorted_type == (3,5):
-                self._color = Color('darkgreen')
-            elif sorted_type == (4,5):
-                self._color = Color('lightblue') 
-            elif sorted_type == (1,2,3):
-                self._color = Color('red')  
-            elif sorted_type == (1,2,4):
-                self._color = Color('blue')   
-            elif sorted_type == (1,2,5):
-                self._color = Color('green')
-            elif sorted_type == (1,3,4):
-                self._color = Color('purple')     
-            elif sorted_type == (1,3,5):
-                self._color = Color('orange') 
-            elif sorted_type == (1,4,5):
-                self._color = Color('pink')
-            elif sorted_type == (2,3,4):
-                self._color = Color('brown')     
-            elif sorted_type == (2,3,5):
-                self._color = Color('yellow')  
-            elif sorted_type == (2,4,5):
-                self._color = Color('darkgreen')
-            elif sorted_type == (3,4,5):
-                self._color = Color('lightblue')  
-            #else:
-            #    print(self._type)
-            #    lol = RR(len(self._type)+1)
-            #    self._color = Color(self._type[0]/lol,self._type[1]/lol,self._type[2]/lol)                                            
-        return self._color
-            
+    
     def sorted_type(self):
         return tuple(sorted(self._type))
+    
+
+    def color(self):
+        return self._color
+        
+        
+            
         
     @cached_method
     def sign(self):
@@ -258,7 +222,7 @@ class kFace(SageObject):
         else:
             return kPatch(other).union(self)
 
-    def _plot(self, geosub):
+    def _plot(self, geosub, color=None):
         r"""
         EXAMPLES::
 
@@ -277,7 +241,10 @@ class kFace(SageObject):
         """
         v = self.vector()
         t = self.type()
-        col = self._color
+        if color != None:
+            col = color
+        else:
+            col = self._color
         G = Graphics()
         
         K = geosub.field()
@@ -352,7 +319,7 @@ class kPatch(SageObject):
         sage: P
         Patch: 1[(0, 0, 0), (1, 2)]* + 1[(0, 0, 1), (1, 3)]* + -1[(0, 1, 0), (1, 2)]* + -1[(0, 0, 0), (1, 3)]*
     """
-    def __init__(self, faces, face_contour=None):
+    def __init__(self, faces):
         r"""
         EXAMPLES::
 
@@ -394,14 +361,7 @@ class kPatch(SageObject):
         else:
             self._dimension = len(f0.vector())
 
-        if not face_contour is None:
-            self._face_contour = face_contour
-        else:
-            self._face_contour = {
-                    1: map(vector, [(0,0,0),(0,1,0),(0,1,1),(0,0,1)]),
-                    2: map(vector, [(0,0,0),(0,0,1),(1,0,1),(1,0,0)]),
-                    3: map(vector, [(0,0,0),(1,0,0),(1,1,0),(0,1,0)])
-            }
+        
             
     def __len__(self):
         return len(self._faces)
@@ -528,7 +488,7 @@ class kPatch(SageObject):
         else:
             return self + kPatch(other)
         
-    def plot(self, geosub):
+    def plot(self, geosub, color=None):
         r"""
         EXAMPLES::
 
@@ -543,7 +503,7 @@ class kPatch(SageObject):
         """
         G = Graphics()
         for face,m in self:
-            G += face._plot(geosub)
+            G += face._plot(geosub,color)
         G.set_aspect_ratio(1)
         return G
               
@@ -879,7 +839,7 @@ class GeoSub(SageObject):
                 new_faces = kPatch([])
                 for f,m in old_faces:
                     if m != 0:
-                        new_faces += kPatch(self._call_on_face(f, color=f.color()))
+                        new_faces += kPatch(self._call_on_face(f,m, color=f.color()))              
                 old_faces = new_faces
             return new_faces
 
@@ -900,11 +860,12 @@ class GeoSub(SageObject):
         else:
             return self._sigma.incidence_matrix()
         
-    def _call_on_face(self, face, color=None):
+    def _call_on_face(self, face, m=1, color=None):
         r"""
         INPUT:
 
         - ``face`` -- a face
+        - ``m`` -- multiplicity
         - ``color`` -- a color or None
 
         OUTPUT:
@@ -945,12 +906,14 @@ class GeoSub(SageObject):
             KeyError: (2, 4)
         """
         x_new = self.matrix() * face.vector()
-        t = face.type()
+        #t = face.type()
+        t = face.sorted_type()
+        s = m*face.sign()
         if self.is_dual():
-            return {kFace(x_new - vv, tt, dual=self.is_dual()):(-1)**(sum(t)+sum(tt))*face.sign()
+            return {kFace(x_new - vv, tt, dual=self.is_dual()):(-1)**(sum(t)+sum(tt))*s
                     for (vv, tt) in self.base_iter()[t] if len(tt) == self._k}
         else:
-            return {kFace(x_new + vv, tt, dual=self.is_dual()):face.sign()
+            return {kFace(x_new + vv, tt, dual=self.is_dual()):s
                     for (vv, tt) in self.base_iter()[t] if len(tt) == self._k}
                 
     def __repr__(self):
