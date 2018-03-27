@@ -119,7 +119,6 @@ class kFace(SageObject):
         """
         self._vector = (ZZ**len(v))(v)
         self._vector.set_immutable()
-        self._dimension = len(v)
         
         if not all((tt in ZZ and 1 <= tt <= len(v)) for tt in t):
             raise ValueError('The type must be a tuple of integers between 1 and {}'.format(len(v)))
@@ -136,16 +135,49 @@ class kFace(SageObject):
             
         else:
             
-            sorted_types = list(combinations(range(1,self._dimension+1),len(self._type)))
+            sorted_types = list(combinations(range(1,len(v)+1),len(self._type)))
             Col = rainbow(len(sorted_types))
             D = dict(zip(sorted_types,Col))
         
             self._color = Color(D[self.sorted_type()])
 
-
-
     def vector(self):
         return self._vector
+
+    def dimension(self):
+        r"""
+        Return the dimension of the ambiant space.
+
+        EXAMPLES::
+
+            sage: from EkEkstar import kFace
+            sage: F = kFace((0,0,0),(1,2))
+            sage: F.dimension()
+            3
+        """
+        return len(self._vector)
+
+    def face_dimension(self):
+        r"""
+        Return the dimension of the face.
+
+        EXAMPLES::
+
+            sage: from EkEkstar import kFace
+            sage: F = kFace((0,0,0),(1,2))
+            sage: F.face_dimension()
+            2
+
+        ::
+
+            sage: F = kFace((0,0,0), (1,2), dual=True)
+            sage: F.face_dimension()
+            1
+        """
+        if self.is_dual():
+            return self.dimension() - len(self._type)
+        else:
+            return len(self._type)
 
     def type(self):
         return self._type
@@ -299,6 +331,52 @@ class kFace(SageObject):
         return kFace(self.vector(), self.type(), dual=not self.is_dual(), 
                      color=self.color())
 
+    def face_contour(self):
+        r"""
+        Return the face contour.
+
+        If this is an edge, it returns the two end points. If this is a
+        losange, it returns the four corners.
+
+        OUTPUT:
+
+        - list of vectors in the Z-module
+
+        EXAMPLES::
+
+            sage: from EkEkstar import kFace
+            sage: kFace((0,0,0),(1,3)).face_contour()
+            [(0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1)]
+            sage: kFace((0,0,0),(2,)).face_contour()
+            [(0, 0, 0), (0, 1, 0)]
+            sage: kFace((0,0,0),(2,), dual=True).face_contour()
+            [(0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1)]
+            sage: kFace((0,0,0),(2,3), dual=True).face_contour()
+            [(0, 0, 0), (1, 0, 0)]
+        """
+        if self.face_dimension() not in [1,2]:
+            raise NotImplementedError("Plotting is implemented only for "
+                    "face in two or three dimensions, not "
+                    "{}".format(self.face_dimension()))
+
+        v = self.vector()
+        R = ZZ**self.dimension()
+        e = {i+1:gen for i,gen in enumerate(R.gens())}
+        if self.face_dimension() == 1:
+            if self.is_dual():
+                a,b = self.type()
+                c, = set([1,2,3]) - set([a,b])
+            else:
+                c, = self.type()
+            return [v, v+e[c]]
+        elif self.face_dimension() == 2:
+            if self.is_dual():
+                c, = self.type()
+                a,b = set([1,2,3]) - set([c])
+            else:
+                a,b = self.type()
+            return [v, v+e[a], v+e[a]+e[b], v+e[b]]
+
     def _plot(self, geosub, color=None):
         r"""
         EXAMPLES::
@@ -306,7 +384,7 @@ class kFace(SageObject):
             sage: from EkEkstar import kFace, GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
             sage: geosub = GeoSub(sub,2, dual=True)
-            sage: f = kFace((0,0,0),(1,2), dual=True)
+            sage: f = kFace((10,21,33),(1,2), dual=True)
             sage: _ = f._plot(geosub)
 
         ::
@@ -430,15 +508,6 @@ class kPatch(SageObject):
         for f,m in self._faces.items():
             if m == 0:
                 del self._faces[f]
-
-        try:
-            f0 = next(iter(self._faces))
-        except StopIteration:
-            self._dimension = None
-        else:
-            self._dimension = len(f0.vector())
-
-        
             
     def __len__(self):
         return len(self._faces)
@@ -582,7 +651,12 @@ class kPatch(SageObject):
             sage: P.dimension()
             3
         """
-        return self._dimension
+        try:
+            f0 = next(iter(self._faces))
+        except StopIteration:
+            return None
+        else:
+            return f0.dimension()
 
     def __repr__(self):
         r"""
