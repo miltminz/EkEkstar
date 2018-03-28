@@ -9,6 +9,9 @@ AUTHORS:
    oriented structure of the classes, multiplicity stored in the patch not
    in the faces. Fixed the creation of patchs (linear time instead of
    quadratic time). Added a dozen of doctests.
+ - Sébastien Labbé, March 28th, 2018: projection and plot of k-faces
+   from a projection matrix. Computation of the projection on the
+   contracting and expanding spaces directly from Minkowski embedding.
 
 .. TODO::
 
@@ -87,7 +90,7 @@ class kFace(SageObject):
     Dual face based at (0,0,0,0) of type (1)::
         
         sage: kFace((0,0,0,0),(1), dual=True)
-        [(0, 0, 0, 0), 1]*
+        [(0, 0, 0, 0), (1,)]*
 
     Operations::
 
@@ -119,27 +122,23 @@ class kFace(SageObject):
         """
         self._vector = (ZZ**len(v))(v)
         self._vector.set_immutable()
-        
-        if not all((tt in ZZ and 1 <= tt <= len(v)) for tt in t):
-            raise ValueError('The type must be a tuple of integers between 1 and {}'.format(len(v)))
-
-        self._type = t
-        
         self._dual = dual
+        
+        if t in ZZ:
+            self._type = (t,)
+        else:
+            self._type = t
 
-        self._color = color
+        if not all((tt in ZZ and 1 <= tt <= len(v)) for tt in self._type):
+            raise ValueError('The type must be a tuple of integers between 1 and {}'.format(len(v)))
         
         if color is not None:
-        
             self._color = Color(color)
-            
         else:
-            
             sorted_types = list(combinations(range(1,len(v)+1),len(self._type)))
             Col = rainbow(len(sorted_types))
             D = dict(zip(sorted_types,Col))
-        
-            self._color = Color(D[self.sorted_type()])
+            self._color = Color(D.get(self.sorted_type(), 'black'))
 
     def vector(self):
         return self._vector
@@ -377,6 +376,204 @@ class kFace(SageObject):
                 a,b = self.type()
             return [v, v+e[a], v+e[a]+e[b], v+e[b]]
 
+    def new_proj(self, M): 
+        r"""
+        INPUT:
+
+        - ``M`` -- projection matrix
+
+        EXAMPLES::
+
+            sage: from EkEkstar import kFace, GeoSub
+            sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
+            sage: geosub = GeoSub(sub,2, dual=True)
+            sage: M = geosub.projection()
+            sage: kFace((10,21,33), (1,2), dual=True).new_proj(M)  # case C
+            [(-45.2833796391679, -24.0675974519667),
+             (-46.0552241455140, -25.1827399600067)]
+            sage: kFace((10,21,33), (1,), dual=True).new_proj(M)   # case E
+            [(-45.2833796391679, -24.0675974519667),
+             (-46.7030230167750, -23.4613067227595),
+             (-47.4748675231211, -24.5764492307995),
+             (-46.0552241455140, -25.1827399600067)]
+
+        Brun substitutions ``[123,132,213,231]`` gives a incidence matrix with
+        totally real eigenvalues::
+
+            sage: from slabbe.mult_cont_frac import Brun
+            sage: algo = Brun()
+            sage: S = algo.substitutions()
+            sage: sub = prod([S[a] for a in [123,132,213,231]])
+            sage: sub
+            WordMorphism: 1->1323, 2->23, 3->3231323
+
+        Case B::
+
+            sage: sub = {1: [1,3,2,3], 2: [2,3], 3: [3,2,3,1,3,2,3]}
+            sage: geosub = GeoSub(sub, 2, dual=True)
+            sage: M = geosub.projection()
+            sage: kFace((10,21,33), (1,2), dual=True).new_proj(M)  # case B
+            [(6.690365529225190287265975075034, -1.500190036950057598982635871389),
+             (5.443385925507723226215965307025, -1.055148169037428790404830742396)]
+
+        Case A::
+
+            sage: sub = {1:[1,2,3,3,3,3], 2:[1,3], 3:[1]}
+            sage: geosub = GeoSub(sub,2, dual=True)
+            sage: M = geosub.projection()
+            sage: kFace((0,0,0),(1,2), dual=True).new_proj(M)      # case A
+            [(0.0000000000000000000000000000000),
+             (-4.744826077681923285621821040766)]
+
+        Case D::
+
+            sage: #kFace((10,21,33), (1,2)).new_proj(geosub)            # case D (broken)
+
+        Larger dimension::
+
+            sage: print('add larger dimension example')
+            TODO
+
+        """
+        return [M*c for c in self.face_contour()]
+
+    def _new_plot(self, M, color=None):
+        r"""
+        INPUT:
+
+        - ``M`` -- projection matrix
+        - ``color`` -- string or None
+
+        EXAMPLES::
+
+            sage: from EkEkstar import kFace, GeoSub
+            sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
+            sage: geosub = GeoSub(sub,2, dual=True)
+            sage: M = geosub.projection()
+            sage: _ = kFace((10,21,33), (1,2), dual=True)._new_plot(M)  # case C
+        """
+        if color is None:
+            color = self._color
+        L = self.new_proj(M)
+        if self.face_dimension() == 1:
+            return line(L, color=color, thickness=3) 
+        elif self.face_dimension() == 2:
+            return polygon2d(L, color=color, thickness=.1, alpha=.8)     
+        else:
+            raise NotImplementedError("Plotting is implemented only for patches in two or three dimensions.")
+
+    def milton_proj(self, geosub):
+        r"""
+        EXAMPLES::
+
+            sage: from EkEkstar import kFace, GeoSub
+            sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
+            sage: geosub = GeoSub(sub,2, dual=True)
+            sage: kFace((10,21,33), (1,2), dual=True).milton_proj(geosub)  # case C
+            [-45.2833796391680 + 24.0675974519667*I,
+             -46.0552241455140 + 25.1827399600067*I]
+            sage: kFace((10,21,33), (1,), dual=True).milton_proj(geosub)   # case E
+            [[-45.2833796391680, 24.0675974519667],
+             [-46.7030230167750, 23.4613067227595],
+             [-47.4748675231211, 24.5764492307995],
+             [-46.0552241455140, 25.1827399600067]]
+
+        Brun substitutions ``[123,132,213,231]`` gives a incidence matrix with
+        totally real eigenvalues::
+
+            sage: from slabbe.mult_cont_frac import Brun
+            sage: algo = Brun()
+            sage: S = algo.substitutions()
+            sage: sub = prod([S[a] for a in [123,132,213,231]])
+            sage: sub
+            WordMorphism: 1->1323, 2->23, 3->3231323
+
+        Case B::
+
+            sage: sub = {1: [1,3,2,3], 2: [2,3], 3: [3,2,3,1,3,2,3]}
+            sage: geosub = GeoSub(sub, 2, dual=True)
+            sage: kFace((10,21,33), (1,2), dual=True).milton_proj(geosub)  # case B
+            [(6.69036552922519, -1.50019003695006),
+             (5.44338592550772, -1.05514816903743)]
+
+        Case A::
+
+            sage: sub = {1:[1,2,3,3,3,3], 2:[1,3], 3:[1]}
+            sage: geosub = GeoSub(sub,2, dual=True)
+            sage: kFace((0,0,0),(1,2), dual=True).milton_proj(geosub)      # case A
+            [0.000000000000000, -4.74482607768192]
+
+        Case D::
+
+            sage: #kFace((10,21,33), (1,2)).milton_proj(geosub)            # case D (broken)
+        """
+        v = self.vector()
+        t = self.type()
+        
+        K = geosub.field()
+        b = K.gen()
+                
+        num = geosub._sigma_dict.keys()
+        
+        if self.is_dual():
+            h = list(set(num)-set(t))
+            B = b
+            vec = geosub.dominant_left_eigenvector()
+            emb = geosub.contracting_eigenvalues_indices()
+        else:
+            h = list(t)
+            B = b**(-1)  # TODO: this seems useless (why?)
+            vec = -geosub.dominant_left_eigenvector() 
+            emb = geosub.dilating_eigenvalues_indices() 
+
+        el = v*vec
+        iter = 0
+
+        conjugates = geosub.complex_embeddings()
+
+        if len(h) == 1:
+            if conjugates[emb[0]].is_real() == True:
+                bp = zero_vector(CC, len(emb))
+                for i in range(len(emb)):
+                    bp[i] = K(el).complex_embeddings()[emb[i]]
+                bp1 = zero_vector(CC, len(emb))
+                for i in range(len(emb)):
+                    bp1[i] = K((el+vec[h[0]-1])).complex_embeddings()[emb[i]] 
+                if len(emb) == 1:
+                    #print "case A"
+                    return [bp[0],bp1[0]]
+                else: 
+                    #print "case B"
+                    return [bp,bp1]
+            else: 
+                bp = K(el).complex_embeddings()[emb[0]]
+                bp1 = K((el+vec[h[0]-1])).complex_embeddings()[emb[0]]
+                #print "case C"
+                return [bp,bp1]
+        elif len(h) == 2: 
+            if conjugates[emb[0]].is_real() == True:
+                bp = (  K(el).complex_embeddings()[emb[0]], 
+                        K(el).complex_embeddings()[emb[1]])
+                bp1 = ( K(el+vec[h[0]-1]).complex_embeddings()[emb[0]],
+                        K(el+vec[h[0]-1]).complex_embeddings()[emb[1]] )
+                bp2 = ( K(el+vec[h[0]-1]+vec[h[1]-1]).complex_embeddings()[emb[0]],
+                        K(el+vec[h[0]-1]+vec[h[1]-1]).complex_embeddings()[emb[1]])
+                bp3 = ( K(el+vec[h[1]-1]).complex_embeddings()[emb[0]],
+                        K(el+vec[h[1]-1]).complex_embeddings()[emb[1]])
+                #print "case D"
+                return [bp,bp1,bp2,bp3]
+            else:   
+                bp =  K(el).complex_embeddings()[emb[0]]
+                bp1 = K(el+vec[h[0]-1]).complex_embeddings()[emb[0]]
+                bp2 = K(el+vec[h[0]-1]+vec[h[1]-1]).complex_embeddings()[emb[0]]
+                bp3 = K(el+vec[h[1]-1]).complex_embeddings()[emb[0]]
+                #print "case E"
+                return [[bp[0],bp[1]],[bp1[0],bp1[1]],[bp2[0],bp2[1]],[bp3[0],bp3[1]]]
+            
+        else:
+            raise NotImplementedError("Projection is implemented only for patches in two or three dimensions.")
+
+
     def _plot(self, geosub, color=None):
         r"""
         EXAMPLES::
@@ -384,15 +581,21 @@ class kFace(SageObject):
             sage: from EkEkstar import kFace, GeoSub
             sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
             sage: geosub = GeoSub(sub,2, dual=True)
-            sage: f = kFace((10,21,33),(1,2), dual=True)
-            sage: _ = f._plot(geosub)
+            sage: _ = kFace((10,21,33), (1,))._plot(geosub)              # case A
+            sage: _ = kFace((10,21,33), (1,2), dual=True)._plot(geosub)  # case C
+            sage: _ = kFace((10,21,33), (1,), dual=True)._plot(geosub)   # case E
+
+        ::
+
+            sage: sub = {1: [1, 3, 2, 3], 2: [2, 3], 3: [3, 2, 3, 1, 3, 2, 3]}
+            sage: geosub = GeoSub(sub, 2, dual=True)
+            sage: _ = kFace((10,21,33), (1,2), dual=True)._plot(geosub)  # case B
 
         ::
 
             sage: sub = {1:[1,2,3,3,3,3], 2:[1,3], 3:[1]}
             sage: geosub = GeoSub(sub,2, dual=True)
-            sage: f = kFace((0,0,0),(1,2), dual=True)
-            sage: _ = f._plot(geosub)
+            sage: _ = kFace((0,0,0),(1,2), dual=True)._plot(geosub)      # case A
         """
         v = self.vector()
         t = self.type()
@@ -603,7 +806,7 @@ class kPatch(SageObject):
             sage: P * 2
             Traceback (most recent call last):
             ...
-            TypeError: unsupported operand parent(s) for *: '<class '__main__.kPatch'>' and 'Integer Ring'
+            TypeError: unsupported operand parent(s) for *: '<class 'EkEkstar.EkEkstar.kPatch'>' and 'Integer Ring'
 
         """
         D = {f:coeff*m for (f,m) in self._faces.items()}
@@ -1002,11 +1205,28 @@ class GeoSub(SageObject):
             vb = -self.dominant_left_eigenvector() 
         return Minkowski_embedding_without_sqrt2(K, vb)
 
-    def contracting_rauzy_projection(self):
-        raise NotImplementedError
-    def expanding_rauzy_projection(self):
-        raise NotImplementedError
+    def projection(self):
+        r"""
+        EXAMPLES::
 
+            sage: from EkEkstar import GeoSub
+            sage: sub = {1:[1,2], 2:[1,3], 3:[1]}
+            sage: GeoSub(sub, 2).projection()
+            [ -1.000000000000000000000000000000
+              -0.8392867552141611325518525646713
+              -0.5436890126920763615708559718500]
+            sage: GeoSub(sub, 2, dual=True).projection()
+            [  1.00000000000000  -1.41964337760708 -0.771844506346038]
+            [ 0.000000000000000  0.606290729207199  -1.11514250803994]
+
+        """
+        K = self.field()
+        vb = self.dominant_left_eigenvector()
+        P,Q = Minkowski_projection_pair(K, vb)
+        if self.is_dual():
+            return Q
+        else:
+            return -P
     @cached_method
     def base_iter(self):
         r"""
@@ -1135,14 +1355,6 @@ class GeoSub(SageObject):
             sage: E._call_on_face(kFace((10,11,12), (2,3)))
             {[(33, 10, 11), (1, 1)]: 1, [(34, 10, 11), (3, 1)]: 1}
 
-        TESTS:
-
-        This is an error::
-
-            sage: E._call_on_face(kFace((10,11,12), (2,4)))
-            Traceback (most recent call last):
-            ...
-            KeyError: (2, 4)
         """
         x_new = self.matrix() * face.vector()
         #t = face.type()
@@ -1224,17 +1436,101 @@ def Minkowski_embedding_without_sqrt2(self, B=None, prec=None):
     places = self.places(prec=prec)
 
     if B is None:
-        B = [(self.gen(0))**i for i in range(self.degree())]
+        B = [self.gen(0)**i for i in range(self.degree())]
 
-    d = {}
-    for col,B_col in enumerate(B):
-        for row in range(r):
-            d[(row,col)] = places[row](B_col)
-        for i in range(s):
-            z = places[r+i](B_col)
-            d[(r+2*i,col)] = z.real()
-            d[(r+2*i+1,col)] = z.imag()
+    rows = []
+    for i in range(r):
+        rows.append([places[i](b) for b in B])
+    for i in range(s):
+        row_real = []
+        row_imag = []
+        for b in B:
+            z = places[r+i](b)
+            row_real.append(z.real())
+            row_imag.append(z.imag())
+        rows.append(row_real)
+        rows.append(row_imag)
 
     from sage.matrix.constructor import matrix
-    return matrix(d)
+    return matrix(rows)
+
+def Minkowski_projection_pair(self, B=None, prec=None):
+    r"""
+    Return the projections to the expanding and contracting spaces.
+
+    OUTPUT:
+    
+    - tuple (A, B) of matrices
+
+    EXAMPLES::
+
+        sage: from EkEkstar.EkEkstar import Minkowski_projection_pair
+        sage: F.<alpha> = NumberField(x^3+2)
+        sage: Minkowski_projection_pair(F)
+        (
+        [  1.00000000000000  -1.25992104989487   1.58740105196820]
+        [  1.00000000000000  0.629960524947437 -0.793700525984099]
+        [ 0.000000000000000   1.09112363597172   1.37472963699860], []
+        )
+        sage: Minkowski_projection_pair(F, [1, alpha+2, alpha^2-alpha])
+        (
+        [ 1.00000000000000 0.740078950105127  2.84732210186307]
+        [ 1.00000000000000  2.62996052494744 -1.42366105093154]
+        [0.000000000000000  1.09112363597172 0.283606001026881], []
+        )
+
+    Tribo::
+
+        sage: F.<beta> = NumberField(x^3-x^2-x-1)
+        sage: Minkowski_projection_pair(F)
+        (
+        [1.000000000000000000000000000000 1.839286755214161132551852564671
+        3.382975767906237494122708536521],
+        [  1.00000000000000 -0.419643377607080 -0.191487883953119]
+        [ 0.000000000000000  0.606290729207199 -0.508851778832738]
+        )
+
+    """
+    r,s = self.signature()
+    places = self.places(prec=prec)
+    beta = self.gen()
+
+    if B is None:
+        B = [beta**i for i in range(self.degree())]
+
+    rows_expanding = []
+    rows_contracting = []
+
+    for i in range(r):
+        place = places[i]
+        row = [place(b) for b in B]
+        norm = place(beta).abs()
+        if norm < 1:
+            rows_contracting.append(row)
+        elif norm > 1:
+            rows_expanding.append(row)
+        else:
+            raise NotImplementedError
+
+    for i in range(s):
+        place = places[r+i]
+        row_real = []
+        row_imag = []
+        for b in B:
+            z = place(b)
+            row_real.append(z.real())
+            row_imag.append(z.imag())
+        norm = place(beta).abs()
+        if norm < 1:
+            rows_contracting.append(row_real)
+            rows_contracting.append(row_imag)
+        elif norm > 1:
+            rows_expanding.append(row_real)
+            rows_expanding.append(row_imag)
+        else:
+            raise NotImplementedError
+
+    from sage.matrix.constructor import matrix
+    return (matrix(len(rows_expanding), self.degree(), rows_expanding), 
+            matrix(len(rows_contracting), self.degree(), rows_contracting))
 
